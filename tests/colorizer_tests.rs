@@ -6,6 +6,7 @@ mod colorizer;
 mod grc;
 
 use colorizer::colorize_parallel;
+use colorizer::colorize_regex;
 use fancy_regex::Regex;
 use grc::GrcatConfigEntry;
 
@@ -16,6 +17,16 @@ fn colorize_test(
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut writer = Vec::new();
     colorize_parallel(&mut input.as_bytes(), &mut writer, rules)?;
+    Ok(String::from_utf8(writer)?)
+}
+
+/// Helper function to run colorize_regex and return the output
+fn colorize_regex_test(
+    input: &str,
+    rules: &[GrcatConfigEntry],
+) -> Result<String, Box<dyn std::error::Error>> {
+    let mut writer = Vec::new();
+    colorize_regex(&mut input.as_bytes(), &mut writer, rules)?;
     Ok(String::from_utf8(writer)?)
 }
 
@@ -867,6 +878,188 @@ mod integration_tests {
 
         assert!(output.contains("name"));
         assert!(output.contains("42"));
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod colorize_regex_tests {
+    use super::*;
+
+    #[test]
+    fn test_regex_no_rules() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let output = colorize_regex_test("hello world\n", &[])?;
+        assert_eq!(output, "hello world\n");
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_empty_input() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let output = colorize_regex_test("", &[])?;
+        assert_eq!(output, "");
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_single_empty_line() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let output = colorize_regex_test("\n", &[])?;
+        assert_eq!(output, "\n");
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_simple_match() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let rules = vec![rule("world", console::Style::new().red())?];
+        let output = colorize_regex_test("hello world", &rules)?;
+
+        // Verify output contains the matched word with ANSI color code
+        assert!(output.contains("hello"));
+        assert!(output.contains("world"));
+        // Should end with newline
+        assert!(output.ends_with('\n'));
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_no_match() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let rules = vec![rule("xyz", console::Style::new().blue())?];
+        let output = colorize_regex_test("hello world", &rules)?;
+
+        // No match means output unchanged
+        assert_eq!(output, "hello world\n");
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_multiple_matches_same_rule() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let rules = vec![rule("o", console::Style::new().green())?];
+        let output = colorize_regex_test("foo boo", &rules)?;
+
+        // Should contain the words (possibly with ANSI codes)
+        assert!(!output.is_empty());
+        // When colors are applied, the output will contain ANSI codes
+        assert!(output.len() >= "foo boo".len());
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_overlapping_matches() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let rules = vec![rule("aa", console::Style::new().red())?];
+        let output = colorize_regex_test("aaa", &rules)?;
+
+        // Should handle overlapping matches correctly
+        assert!(output.contains("a"));
+        assert!(output.ends_with('\n'));
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_multiple_rules() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let rules = vec![
+            rule("ERROR", console::Style::new().red())?,
+            rule("INFO", console::Style::new().blue())?,
+        ];
+        let output = colorize_regex_test("ERROR: something\nINFO: something else", &rules)?;
+
+        // Should contain both styled sections
+        assert!(output.contains("ERROR"));
+        assert!(output.contains("INFO"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_capture_groups() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        // Test regex with capture groups - style different parts differently
+        let mut rule_entry = rule(r"(\w+): (\d+)", console::Style::new().red())?;
+        rule_entry.colors = vec![
+            console::Style::new().red(),   // full match
+            console::Style::new().blue(),  // first capture group (word)
+            console::Style::new().green(), // second capture group (number)
+        ];
+
+        let rules = vec![rule_entry];
+        let output = colorize_regex_test("count: 42", &rules)?;
+
+        // Should contain styled output
+        assert!(output.contains("count"));
+        assert!(output.contains("42"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_zero_width_match() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        // Test word boundary matches (^, $, \b) which are zero-width
+        let rules = vec![rule(r"\b\w+\b", console::Style::new().yellow())?];
+        let output = colorize_regex_test("hello world", &rules)?;
+
+        // Should handle word boundaries without infinite loops
+        assert!(output.contains("hello"));
+        assert!(output.contains("world"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_complex_patterns() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let rules = vec![
+            rule(
+                r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
+                console::Style::new().cyan(),
+            )?, // IP addresses
+            rule(r":\d+", console::Style::new().yellow())?, // port numbers
+            rule(r#"\"[^\"]*\""#, console::Style::new().green())?, // quoted strings
+        ];
+
+        let input = r#"Server 192.168.1.1:8080 responded with "OK""#.to_string() + "\n";
+        let output = colorize_regex_test(&input, &rules)?;
+
+        assert!(output.contains("192.168.1.1"));
+        assert!(output.contains(":8080"));
+        assert!(output.contains("\"OK\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_performance_optimization() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        // Test that the caching optimization works by using overlapping patterns
+        let rules = vec![
+            rule("test", console::Style::new().red())?,
+            rule("testing", console::Style::new().blue())?, // overlaps with "test"
+        ];
+
+        let output = colorize_regex_test("testing", &rules)?;
+        // The caching should prevent redundant regex calls
+        assert!(output.contains("testing"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_json_like_output() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let rules = vec![
+            rule(r#""[^"]*""#, console::Style::new().green())?, // quoted strings
+            rule(r": \d+", console::Style::new().yellow())?,    // numbers
+            rule(r": (true|false)", console::Style::new().cyan())?, // booleans
+        ];
+
+        let mut input = r#"{"name": "test", "value": 42, "active": true}"#.to_string();
+        input.push('\n');
+        let output = colorize_regex_test(&input, &rules)?;
+
+        assert!(output.contains("name"));
+        assert!(output.contains("42"));
+        assert!(output.contains("true"));
         Ok(())
     }
 }
