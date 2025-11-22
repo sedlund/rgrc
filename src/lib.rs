@@ -384,10 +384,43 @@ const CONFIG_PATHS: &[&str] = &[
 /// let rules = load_rules_for_command("ping");
 /// // Now rules contains all colorization rules for ping from all config files
 /// ```
+#[allow(dead_code)]
 pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     CONFIG_PATHS
         .iter()
         .map(|s| shellexpand::tilde(s))
         .flat_map(|s| load_config(s.as_ref(), pseudo_command))
         .collect()
+}
+
+
+// Note: These tests are documentation-based since the main() function
+// cannot be directly tested. The actual behavior would need to be tested
+// through integration tests that run the binary.
+#[cfg(test)]
+#[test]
+fn test_load_rules_for_command() {
+    // Test loading rules for a known command that should have configuration
+    let rules = load_rules_for_command("ping");
+
+    // Since we have rgrc.conf and share/conf.ping, we should get some rules
+    // The exact number may vary, but it should be non-empty for a common command
+    assert!(!rules.is_empty(), "Should load rules for ping command");
+
+    // Verify that the rules are valid GrcatConfigEntry structs
+    for rule in &rules {
+        assert!(
+            !rule.regex.as_str().is_empty(),
+            "Rule should have a regex pattern"
+        );
+        // Colors can be empty for some rules, but regex should always be present
+    }
+
+    // Test with a command that likely doesn't exist
+    let no_rules = load_rules_for_command("nonexistent_command_xyz");
+    // This should return empty, as no config should match
+    assert!(
+        no_rules.is_empty(),
+        "Nonexistent command should return no rules"
+    );
 }
