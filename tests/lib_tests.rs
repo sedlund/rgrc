@@ -5,13 +5,19 @@
 fn test_load_grcat_config_nonexistent_file() {
     // Test that nonexistent files return empty vector
     let result = rgrc::load_grcat_config("/nonexistent/path/file.conf");
-    assert!(result.is_empty(), "Should return empty vector for nonexistent file");
+    assert!(
+        result.is_empty(),
+        "Should return empty vector for nonexistent file"
+    );
 }
 
 #[test]
 fn test_load_grcat_config_empty_path() {
     let result = rgrc::load_grcat_config("");
-    assert!(result.is_empty(), "Should return empty vector for empty path");
+    assert!(
+        result.is_empty(),
+        "Should return empty vector for empty path"
+    );
 }
 
 #[test]
@@ -38,7 +44,7 @@ fn test_load_grcat_config_with_relative_paths() {
     let result = rgrc::load_grcat_config(".");
     // Should not panic
     let _ = result;
-    
+
     let result2 = rgrc::load_grcat_config("..");
     let _ = result2;
 }
@@ -47,13 +53,19 @@ fn test_load_grcat_config_with_relative_paths() {
 fn test_load_config_nonexistent_config_file() {
     // load_config should handle missing files gracefully
     let result = rgrc::load_config("/nonexistent/grc.conf", "ls");
-    assert!(result.is_empty(), "Should return empty vector when config file doesn't exist");
+    assert!(
+        result.is_empty(),
+        "Should return empty vector when config file doesn't exist"
+    );
 }
 
 #[test]
 fn test_load_config_empty_config_path() {
     let result = rgrc::load_config("", "any_command");
-    assert!(result.is_empty(), "Should return empty for empty config path");
+    assert!(
+        result.is_empty(),
+        "Should return empty for empty config path"
+    );
 }
 
 #[test]
@@ -66,7 +78,7 @@ fn test_load_config_empty_command() {
 #[test]
 fn test_color_mode_from_str() {
     use std::str::FromStr;
-    
+
     // Test valid parsing
     assert!(rgrc::ColorMode::from_str("on").is_ok());
     assert!(rgrc::ColorMode::from_str("off").is_ok());
@@ -76,9 +88,12 @@ fn test_color_mode_from_str() {
 #[test]
 fn test_color_mode_invalid_inputs() {
     use std::str::FromStr;
-    
+
     // Test invalid inputs
-    assert!(rgrc::ColorMode::from_str("ON").is_err(), "Should be case-sensitive");
+    assert!(
+        rgrc::ColorMode::from_str("ON").is_err(),
+        "Should be case-sensitive"
+    );
     assert!(rgrc::ColorMode::from_str("invalid").is_err());
     assert!(rgrc::ColorMode::from_str("").is_err());
     assert!(rgrc::ColorMode::from_str("ye").is_err());
@@ -87,7 +102,7 @@ fn test_color_mode_invalid_inputs() {
 #[test]
 fn test_color_mode_equality() {
     use std::str::FromStr;
-    
+
     // Test that parsing the same value gives equal results
     let mode1 = rgrc::ColorMode::from_str("on").unwrap();
     let mode2 = rgrc::ColorMode::from_str("on").unwrap();
@@ -97,11 +112,11 @@ fn test_color_mode_equality() {
 #[test]
 fn test_color_mode_all_variants() {
     use std::str::FromStr;
-    
+
     let on = rgrc::ColorMode::from_str("on").unwrap();
     let off = rgrc::ColorMode::from_str("off").unwrap();
     let auto = rgrc::ColorMode::from_str("auto").unwrap();
-    
+
     // Variants should not be equal to each other
     assert_ne!(on, off);
     assert_ne!(on, auto);
@@ -111,7 +126,7 @@ fn test_color_mode_all_variants() {
 #[test]
 fn test_color_mode_debug_output() {
     use std::str::FromStr;
-    
+
     let mode = rgrc::ColorMode::from_str("on").unwrap();
     let debug_str = format!("{:?}", mode);
     assert_eq!(debug_str, "On");
@@ -122,7 +137,7 @@ fn test_load_grcat_config_multiple_calls() {
     // Calling load_grcat_config multiple times should be consistent
     let result1 = rgrc::load_grcat_config("/nonexistent");
     let result2 = rgrc::load_grcat_config("/nonexistent");
-    
+
     assert_eq!(result1.len(), result2.len());
     assert!(result1.is_empty() && result2.is_empty());
 }
@@ -131,14 +146,14 @@ fn test_load_grcat_config_multiple_calls() {
 fn test_resource_paths_constant() {
     // Test that RESOURCE_PATHS constant is accessible and valid
     let paths = rgrc::RESOURCE_PATHS;
-    
+
     // Should not be empty
     assert!(!paths.is_empty(), "RESOURCE_PATHS should not be empty");
-    
+
     // Should contain expected path prefixes
     let has_user_paths = paths.iter().any(|p| p.contains("~"));
     let has_system_paths = paths.iter().any(|p| p.starts_with("/"));
-    
+
     assert!(has_user_paths, "Should contain user paths (~)");
     assert!(has_system_paths, "Should contain system paths (/)");
 }
@@ -146,16 +161,19 @@ fn test_resource_paths_constant() {
 #[test]
 fn test_resource_paths_no_empty_entries() {
     let paths = rgrc::RESOURCE_PATHS;
-    
+
     for path in paths {
-        assert!(!path.is_empty(), "RESOURCE_PATHS should not contain empty entries");
+        assert!(
+            !path.is_empty(),
+            "RESOURCE_PATHS should not contain empty entries"
+        );
     }
 }
 
 #[test]
 fn test_resource_paths_valid_format() {
     let paths = rgrc::RESOURCE_PATHS;
-    
+
     for path in paths {
         // Each path should be a valid format (start with ~ or /)
         let valid = path.starts_with('~') || path.starts_with('/');
@@ -167,7 +185,7 @@ fn test_resource_paths_valid_format() {
 fn test_load_config_with_pseudo_command() {
     // Test with various pseudo-command formats
     let test_commands = vec!["ls", "grep", "curl -i https://example.com", "docker ps"];
-    
+
     for cmd in test_commands {
         // Should not panic for any valid command name
         let result = rgrc::load_config("/nonexistent", cmd);
@@ -178,10 +196,10 @@ fn test_load_config_with_pseudo_command() {
 #[test]
 fn test_color_mode_copy_semantics() {
     use std::str::FromStr;
-    
+
     let mode1 = rgrc::ColorMode::from_str("on").unwrap();
     let mode2 = mode1; // Copy semantics
-    
+
     // Both should be equal since ColorMode is Copy
     assert_eq!(mode1, mode2);
 }
@@ -189,10 +207,10 @@ fn test_color_mode_copy_semantics() {
 #[test]
 fn test_color_mode_clone_semantics() {
     use std::str::FromStr;
-    
+
     let mode1 = rgrc::ColorMode::from_str("off").unwrap();
     let mode2 = mode1.clone();
-    
+
     // Both should be equal
     assert_eq!(mode1, mode2);
 }
@@ -205,19 +223,25 @@ fn test_color_mode_clone_semantics() {
 fn test_load_rules_for_command() {
     // Test loading rules for a known command that should have configuration
     let rules = rgrc::load_rules_for_command("ping");
-    
+
     // Since we have rgrc.conf and share/conf.ping, we should get some rules
     // The exact number may vary, but it should be non-empty for a common command
     assert!(!rules.is_empty(), "Should load rules for ping command");
-    
+
     // Verify that the rules are valid GrcatConfigEntry structs
     for rule in &rules {
-        assert!(!rule.regex.as_str().is_empty(), "Rule should have a regex pattern");
+        assert!(
+            !rule.regex.as_str().is_empty(),
+            "Rule should have a regex pattern"
+        );
         // Colors can be empty for some rules, but regex should always be present
     }
-    
+
     // Test with a command that likely doesn't exist
     let no_rules = rgrc::load_rules_for_command("nonexistent_command_xyz");
     // This should return empty, as no config should match
-    assert!(no_rules.is_empty(), "Nonexistent command should return no rules");
+    assert!(
+        no_rules.is_empty(),
+        "Nonexistent command should return no rules"
+    );
 }

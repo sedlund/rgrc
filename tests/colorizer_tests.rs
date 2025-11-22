@@ -6,8 +6,8 @@ mod colorizer;
 mod grc;
 
 use colorizer::colorize_parallel;
-use grc::GrcatConfigEntry;
 use fancy_regex::Regex;
+use grc::GrcatConfigEntry;
 
 /// Helper function to run colorization and return the output
 fn colorize_test(
@@ -20,7 +20,10 @@ fn colorize_test(
 }
 
 /// Helper to create a simple style rule
-fn rule(pattern: &str, style: console::Style) -> Result<GrcatConfigEntry, Box<dyn std::error::Error>> {
+fn rule(
+    pattern: &str,
+    style: console::Style,
+) -> Result<GrcatConfigEntry, Box<dyn std::error::Error>> {
     Ok(GrcatConfigEntry {
         regex: Regex::new(pattern)?,
         colors: vec![style],
@@ -60,7 +63,7 @@ mod basic_colorization_tests {
         console::set_colors_enabled(true);
         let rules = vec![rule("world", console::Style::new().red())?];
         let output = colorize_test("hello world", &rules)?;
-        
+
         // Verify output contains the matched word with ANSI color code
         assert!(output.contains("hello"));
         assert!(output.contains("world"));
@@ -74,7 +77,7 @@ mod basic_colorization_tests {
         console::set_colors_enabled(true);
         let rules = vec![rule("xyz", console::Style::new().blue())?];
         let output = colorize_test("hello world", &rules)?;
-        
+
         // No match means output unchanged
         assert_eq!(output, "hello world\n");
         Ok(())
@@ -85,7 +88,7 @@ mod basic_colorization_tests {
         console::set_colors_enabled(true);
         let rules = vec![rule("o", console::Style::new().green())?];
         let output = colorize_test("foo boo", &rules)?;
-        
+
         // Should contain the words (possibly with ANSI codes)
         // Check that output is not empty and contains the original structure
         assert!(!output.is_empty());
@@ -102,7 +105,7 @@ mod basic_colorization_tests {
             rule("bar", console::Style::new().blue())?,
         ];
         let output = colorize_test("foobar", &rules)?;
-        
+
         // Both patterns should be present
         assert!(output.contains("foo"));
         assert!(output.contains("bar"));
@@ -112,11 +115,9 @@ mod basic_colorization_tests {
     #[test]
     fn test_style_merging() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let rules = vec![
-            rule("hello", console::Style::new().red())?,
-        ];
+        let rules = vec![rule("hello", console::Style::new().red())?];
         let output = colorize_test("hello hello", &rules)?;
-        
+
         // Both instances of "hello" should be styled
         let count = output.matches("hello").count();
         assert_eq!(count, 2);
@@ -133,7 +134,7 @@ mod multiline_tests {
         console::set_colors_enabled(true);
         let rules = vec![rule("test", console::Style::new().red())?];
         let output = colorize_test("test line\nno match\n", &rules)?;
-        
+
         // First line should have "test", second should not be modified
         let lines: Vec<&str> = output.lines().collect();
         assert_eq!(lines.len(), 2);
@@ -144,7 +145,7 @@ mod multiline_tests {
     fn test_multiple_lines_with_matches() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
         let rules = vec![rule("foo", console::Style::new().green())?];
-        
+
         let mut input = String::new();
         for i in 0..10 {
             if i % 2 == 0 {
@@ -153,7 +154,7 @@ mod multiline_tests {
                 input.push_str("baz qux\n");
             }
         }
-        
+
         let output = colorize_test(&input, &rules)?;
         let lines: Vec<&str> = output.lines().collect();
         assert_eq!(lines.len(), 10);
@@ -164,13 +165,13 @@ mod multiline_tests {
     fn test_large_input_single_threaded() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
         let rules = vec![rule("line", console::Style::new().blue())?];
-        
+
         // Create input with 500 lines (below parallel threshold)
         let mut input = String::new();
         for i in 0..500 {
             input.push_str(&format!("line {}\n", i));
         }
-        
+
         let output = colorize_test(&input, &rules)?;
         let lines: Vec<&str> = output.lines().collect();
         assert_eq!(lines.len(), 500);
@@ -181,17 +182,17 @@ mod multiline_tests {
     fn test_large_input_parallel_processing() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
         let rules = vec![rule("line", console::Style::new().red())?];
-        
+
         // Create input with 1500 lines (above parallel threshold of 1000)
         let mut input = String::new();
         for i in 0..1500 {
             input.push_str(&format!("line {}\n", i));
         }
-        
+
         let output = colorize_test(&input, &rules)?;
         let lines: Vec<&str> = output.lines().collect();
         assert_eq!(lines.len(), 1500);
-        
+
         // Verify line count is preserved (structure integrity)
         assert!(lines.len() == 1500);
         Ok(())
@@ -203,7 +204,7 @@ mod multiline_tests {
         let rules = vec![rule("test", console::Style::new().green())?];
         let input = "test\n\ntest\n\n";
         let output = colorize_test(input, &rules)?;
-        
+
         // Empty lines should be preserved
         assert!(output.contains("\n\n"));
         Ok(())
@@ -215,7 +216,7 @@ mod multiline_tests {
         let rules = vec![rule(r"\d+", console::Style::new().yellow())?];
         let input = "line 123 and 456\nnext 789\n";
         let output = colorize_test(input, &rules)?;
-        
+
         // Special regex should work
         assert!(output.contains("line"));
         assert!(output.contains("next"));
@@ -291,7 +292,7 @@ mod regex_pattern_tests {
         console::set_colors_enabled(true);
         let rules = vec![rule("Test", console::Style::new().red())?];
         let output = colorize_test("test Test TEST", &rules)?;
-        
+
         // Only "Test" should match (case-sensitive)
         assert!(output.contains("test"));
         assert!(output.contains("Test"));
@@ -336,10 +337,7 @@ mod capture_group_tests {
         console::set_colors_enabled(true);
         let rules = vec![GrcatConfigEntry {
             regex: Regex::new(r"(test)")?,
-            colors: vec![
-                console::Style::new(),
-                console::Style::new().red(),
-            ],
+            colors: vec![console::Style::new(), console::Style::new().red()],
         }];
         let output = colorize_test("this is test", &rules)?;
         assert!(output.contains("test"));
@@ -368,9 +366,7 @@ mod capture_group_tests {
         console::set_colors_enabled(true);
         let rules = vec![GrcatConfigEntry {
             regex: Regex::new(r"(\w+):(\d+)")?,
-            colors: vec![
-                console::Style::new().red(),
-            ],
+            colors: vec![console::Style::new().red()],
         }];
         let output = colorize_test("server:8080", &rules)?;
         // Should still process without error
@@ -534,13 +530,13 @@ mod edge_case_tests {
     fn test_very_long_line() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
         let rules = vec![rule("x", console::Style::new().red())?];
-        
+
         // Create a very long line
         let mut input = "a".repeat(10000);
         input.push('x');
         input.push_str(&"b".repeat(10000));
         let output = colorize_test(&input, &rules)?;
-        
+
         assert!(output.contains("a"));
         assert!(output.contains("b"));
         Ok(())
@@ -551,7 +547,7 @@ mod edge_case_tests {
         console::set_colors_enabled(true);
         let rules = vec![rule("test", console::Style::new().red())?];
         let output = colorize_test("     \n", &rules)?;
-        
+
         // Should preserve spaces
         assert!(output.contains("    "));
         Ok(())
@@ -562,7 +558,7 @@ mod edge_case_tests {
         console::set_colors_enabled(true);
         let rules = vec![rule("test", console::Style::new().red())?];
         let output = colorize_test("test\ttest\n", &rules)?;
-        
+
         // Should preserve tabs
         assert!(output.contains("\t"));
         Ok(())
@@ -573,7 +569,7 @@ mod edge_case_tests {
         console::set_colors_enabled(true);
         let rules = vec![rule("test", console::Style::new().red())?];
         let output = colorize_test("test 你好 test", &rules)?;
-        
+
         assert!(output.contains("test"));
         assert!(output.contains("你好"));
         Ok(())
@@ -584,7 +580,7 @@ mod edge_case_tests {
         console::set_colors_enabled(true);
         let rules = vec![rule("^test", console::Style::new().red())?];
         let output = colorize_test("test data", &rules)?;
-        
+
         assert!(output.contains("test"));
         Ok(())
     }
@@ -594,7 +590,7 @@ mod edge_case_tests {
         console::set_colors_enabled(true);
         let rules = vec![rule("end$", console::Style::new().red())?];
         let output = colorize_test("this is the end", &rules)?;
-        
+
         assert!(output.contains("end"));
         Ok(())
     }
@@ -604,7 +600,7 @@ mod edge_case_tests {
         console::set_colors_enabled(true);
         let rules = vec![rule("^", console::Style::new().red())?];
         let output = colorize_test("test\n", &rules)?;
-        
+
         // Should handle zero-width match without hanging
         assert!(output.contains("test"));
         Ok(())
@@ -619,7 +615,7 @@ mod edge_case_tests {
             rule("test", console::Style::new().green())?,
         ];
         let output = colorize_test("test", &rules)?;
-        
+
         assert!(output.contains("test"));
         Ok(())
     }
@@ -632,7 +628,7 @@ mod edge_case_tests {
             rule("bcd", console::Style::new().blue())?,
         ];
         let output = colorize_test("abcd", &rules)?;
-        
+
         assert!(output.contains("a"));
         assert!(output.contains("b"));
         assert!(output.contains("c"));
@@ -645,7 +641,7 @@ mod edge_case_tests {
         console::set_colors_enabled(true);
         let rules = vec![rule("test", console::Style::new().red())?];
         let output = colorize_test("test\n\n\ntest\n", &rules)?;
-        
+
         // Should preserve empty lines
         assert!(output.contains("\n\n"));
         Ok(())
@@ -657,7 +653,7 @@ mod edge_case_tests {
         let rules = vec![rule("test", console::Style::new().red())?];
         // Note: Input will be treated as raw bytes
         let output = colorize_test("test\r\n", &rules)?;
-        
+
         assert!(output.contains("test"));
         Ok(())
     }
@@ -667,7 +663,7 @@ mod edge_case_tests {
         console::set_colors_enabled(false);
         let rules = vec![rule("test", console::Style::new().red())?];
         let output = colorize_test("test data", &rules)?;
-        
+
         // Output should still work even with colors disabled
         assert!(output.contains("test"));
         Ok(())
@@ -682,13 +678,13 @@ mod performance_tests {
     fn test_single_threaded_path() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
         let rules = vec![rule("line", console::Style::new().red())?];
-        
+
         // Create input with exactly 999 lines (below parallel threshold)
         let mut input = String::new();
         for i in 0..999 {
             input.push_str(&format!("line {}\n", i));
         }
-        
+
         let output = colorize_test(&input, &rules)?;
         let lines: Vec<&str> = output.lines().collect();
         assert_eq!(lines.len(), 999);
@@ -699,17 +695,17 @@ mod performance_tests {
     fn test_parallel_path() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
         let rules = vec![rule("line", console::Style::new().green())?];
-        
+
         // Create input with 2000 lines (above parallel threshold of 1000)
         let mut input = String::new();
         for i in 0..2000 {
             input.push_str(&format!("line {}\n", i));
         }
-        
+
         let output = colorize_test(&input, &rules)?;
         let lines: Vec<&str> = output.lines().collect();
         assert_eq!(lines.len(), 2000);
-        
+
         // Verify ordering is preserved
         let first_line = lines.first().unwrap();
         let last_line = lines.last().unwrap();
@@ -722,13 +718,13 @@ mod performance_tests {
     fn test_boundary_at_1000_lines() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
         let rules = vec![rule("x", console::Style::new().blue())?];
-        
+
         // Create input with exactly 1000 lines (at the boundary)
         let mut input = String::new();
         for i in 0..1000 {
             input.push_str(&format!("line {}\n", i));
         }
-        
+
         let output = colorize_test(&input, &rules)?;
         let lines: Vec<&str> = output.lines().collect();
         assert_eq!(lines.len(), 1000);
@@ -738,12 +734,12 @@ mod performance_tests {
     #[test]
     fn test_many_small_rules() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        
+
         let mut rules = Vec::new();
         for i in 0..10 {
             rules.push(rule(&format!("word{}", i), console::Style::new().red())?);
         }
-        
+
         let mut input = String::new();
         for _i in 0..100 {
             for j in 0..10 {
@@ -751,7 +747,7 @@ mod performance_tests {
             }
             input.push('\n');
         }
-        
+
         let output = colorize_test(&input, &rules)?;
         assert!(!output.is_empty());
         Ok(())
@@ -760,15 +756,16 @@ mod performance_tests {
     #[test]
     fn test_complex_regex_performance() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let rules = vec![
-            rule(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", console::Style::new().yellow())?,
-        ];
-        
+        let rules = vec![rule(
+            r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
+            console::Style::new().yellow(),
+        )?];
+
         let mut input = String::new();
         for i in 0..100 {
             input.push_str(&format!("IP: 192.168.1.{}\n", i));
         }
-        
+
         let output = colorize_test(&input, &rules)?;
         assert!(output.contains("192"));
         Ok(())
@@ -787,10 +784,11 @@ mod integration_tests {
             rule("WARN", console::Style::new().yellow())?,
             rule("INFO", console::Style::new().green())?,
         ];
-        
-        let input = "ERROR: failed to connect\nWARN: retry in progress\nINFO: connection established\n";
+
+        let input =
+            "ERROR: failed to connect\nWARN: retry in progress\nINFO: connection established\n";
         let output = colorize_test(input, &rules)?;
-        
+
         assert!(output.contains("ERROR"));
         assert!(output.contains("WARN"));
         assert!(output.contains("INFO"));
@@ -800,13 +798,14 @@ mod integration_tests {
     #[test]
     fn test_ip_address_coloring() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let rules = vec![
-            rule(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", console::Style::new().cyan())?,
-        ];
-        
+        let rules = vec![rule(
+            r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
+            console::Style::new().cyan(),
+        )?];
+
         let input = "Connection from 192.168.1.100 to 10.0.0.1\n";
         let output = colorize_test(input, &rules)?;
-        
+
         assert!(output.contains("192.168.1.100"));
         assert!(output.contains("10.0.0.1"));
         Ok(())
@@ -815,13 +814,11 @@ mod integration_tests {
     #[test]
     fn test_port_number_coloring() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let rules = vec![
-            rule(r":(\d+)", console::Style::new().magenta())?,
-        ];
-        
+        let rules = vec![rule(r":(\d+)", console::Style::new().magenta())?];
+
         let input = "server listening on :8080\n";
         let output = colorize_test(input, &rules)?;
-        
+
         assert!(output.contains("8080"));
         Ok(())
     }
@@ -829,13 +826,11 @@ mod integration_tests {
     #[test]
     fn test_file_permissions_coloring() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let rules = vec![
-            rule(r"^(rwx|rw-|r--)", console::Style::new().green())?,
-        ];
-        
+        let rules = vec![rule(r"^(rwx|rw-|r--)", console::Style::new().green())?];
+
         let input = "rwxr-xr-x user group file.txt\n";
         let output = colorize_test(input, &rules)?;
-        
+
         assert!(output.contains("rwx"));
         Ok(())
     }
@@ -848,10 +843,10 @@ mod integration_tests {
             rule(r" 4\d{2} ", console::Style::new().yellow())?,
             rule(r" 5\d{2} ", console::Style::new().red())?,
         ];
-        
+
         let input = "GET / 200 OK\nPOST /api 404 Not Found\nPUT /data 500 Error\n";
         let output = colorize_test(input, &rules)?;
-        
+
         assert!(output.contains("200"));
         assert!(output.contains("404"));
         assert!(output.contains("500"));
@@ -865,11 +860,11 @@ mod integration_tests {
             rule(r#"\"[^\"]*\""#, console::Style::new().cyan())?,
             rule(r": \d+", console::Style::new().yellow())?,
         ];
-        
+
         let mut input = r#"{"name": "test", "value": 42}"#.to_string();
         input.push('\n');
         let output = colorize_test(&input, &rules)?;
-        
+
         assert!(output.contains("name"));
         assert!(output.contains("42"));
         Ok(())

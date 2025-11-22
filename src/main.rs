@@ -2,7 +2,8 @@ use std::process::{Command, Stdio};
 
 // Import testable components from lib
 use rgrc::{
-    ColorMode, colorizer::colorize_parallel as colorize, grc::GrcatConfigEntry, load_rules_for_command,
+    ColorMode, colorizer::colorize_parallel as colorize, grc::GrcatConfigEntry,
+    load_rules_for_command,
 };
 
 /// Main entry point for the grc (generic colourizer) program.
