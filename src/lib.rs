@@ -116,9 +116,11 @@ impl FromStr for ColorMode {
 /// - `~` expansion (home directory)
 /// - XDG Base Directory Specification compliance
 /// - System-wide configuration directories
+/// - **Test mode**: Includes `./share` for CI/testing environments
 ///
 /// # Search Order
 ///
+/// ## Normal Mode
 /// 1. `~/.config/rgrc` - User's rgrc config directory (XDG_CONFIG_HOME)
 /// 2. `~/.local/share/rgrc` - User's rgrc data directory (XDG_DATA_HOME)
 /// 3. `/usr/local/share/rgrc` - System-wide custom installations
@@ -128,6 +130,17 @@ impl FromStr for ColorMode {
 /// 7. `/usr/local/share/grc` - Legacy system-wide location
 /// 8. `/usr/share/grc` - Standard grc location (original)
 ///
+/// ## Test Mode (when running `cargo test`)
+/// 1. `./share` - **Project share directory (for CI/testing)**
+/// 2. `~/.config/rgrc` - User's rgrc config directory (XDG_CONFIG_HOME)
+/// 3. `~/.local/share/rgrc` - User's rgrc data directory (XDG_DATA_HOME)
+/// 4. `/usr/local/share/rgrc` - System-wide custom installations
+/// 5. `/usr/share/rgrc` - Standard system location (rgrc variant)
+/// 6. `~/.config/grc` - Legacy grc user config directory
+/// 7. `~/.local/share/grc` - Legacy grc user data directory
+/// 8. `/usr/local/share/grc` - Legacy system-wide location
+/// 9. `/usr/share/grc` - Standard grc location (original)
+///
 /// # Examples
 ///
 /// All paths in RESOURCE_PATHS are searched when loading configuration:
@@ -135,6 +148,20 @@ impl FromStr for ColorMode {
 /// let config_entries = load_config("~/.config/rgrc/grc.conf", "ping");
 /// // This will search in all RESOURCE_PATHS directories for matching rules
 /// ```
+#[cfg(test)]
+pub const RESOURCE_PATHS: &[&str] = &[
+    "./share",  // Test mode: include project share directory first
+    "~/.config/rgrc",
+    "~/.local/share/rgrc",
+    "/usr/local/share/rgrc",
+    "/usr/share/rgrc",
+    "~/.config/grc",
+    "~/.local/share/grc",
+    "/usr/local/share/grc",
+    "/usr/share/grc",
+];
+
+#[cfg(not(test))]
 pub const RESOURCE_PATHS: &[&str] = &[
     "~/.config/rgrc",
     "~/.local/share/rgrc",
@@ -309,6 +336,21 @@ pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
 /// The program searches these paths to find grc.conf (or rgrc.conf) which maps
 /// commands to their colorization profiles. Paths prefixed with ~ are expanded using shellexpand.
 /// Typical flow: try ~/.grc first (user config), then system-wide configs (/etc/grc.conf).
+/// **Test mode**: Includes `./etc/rgrc.conf` for CI/testing environments.
+#[cfg(test)]
+const CONFIG_PATHS: &[&str] = &[
+    "./etc/rgrc.conf",  // Test mode: include project etc directory first
+    "~/.rgrc",
+    "~/.config/rgrc/rgrc.conf",
+    "/usr/local/etc/rgrc.conf",
+    "/etc/rgrc.conf",
+    "~/.grc",
+    "~/.config/grc/grc.conf",
+    "/usr/local/etc/grc.conf",
+    "/etc/grc.conf",
+];
+
+#[cfg(not(test))]
 const CONFIG_PATHS: &[&str] = &[
     "~/.rgrc",
     "~/.config/rgrc/rgrc.conf",
