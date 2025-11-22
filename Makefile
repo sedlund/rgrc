@@ -6,9 +6,6 @@ all:
 clean:
 	cargo clean
 
-release-build: rgrc.1.gz
-	cargo build --release
-
 release: rgrc.1.gz
 	cargo build --release
 
