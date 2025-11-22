@@ -1,0 +1,793 @@
+//! # grc.rs - Configuration Parsing for Colorization Rules
+//!
+//! This module provides utilities for parsing GRC (Grep Result Colorizer) configuration files
+//! in two formats:
+//!
+//! 1. **grc.conf format**: Maps command patterns to grcat configuration files
+//!    - Format: Lines with regex patterns followed by configuration file paths
+//!    - Example: `^ping` → `conf.ping`
+//!
+//! 2. **grcat.conf format**: Defines colorization rules for specific commands
+//!    - Format: Key-value pairs (regexp=..., colours=...)
+//!    - Contains regex patterns matched against output text
+//!    - Associates console styles (colors, attributes) with capture groups
+//!
+//! ## Supported Styles
+//!
+//! The module supports grcat-style color specifications:
+//! - **Foreground colors**: black, red, green, yellow, blue, magenta, cyan, white
+//! - **Background colors**: on_black, on_red, on_green, on_yellow, on_blue, on_magenta, on_cyan, on_white
+//! - **Attributes**: bold, italic, underline, blink, reverse
+//! - **Brightness**: bright_black, bright_red, ... bright_white
+//! - **Special**: unchanged, default, dark, none
+//!
+//! ## Module Structure
+//!
+//! - `style_from_str()`: Parse a single style keyword
+//! - `styles_from_str()`: Parse comma-separated style list
+//! - `GrcConfigReader`: Iterator for grc.conf files
+//! - `GrcatConfigReader`: Iterator for grcat.conf files
+//! - `GrcatConfigEntry`: Represents a single colorization rule
+
+use std::io::{BufRead, Lines};
+
+use debug_print::debug_println;
+use fancy_regex::Regex;
+
+/// Parse a single space-separated style keyword and apply it to a Style.
+///
+/// This function processes grcat-style color and attribute keywords and builds up a composite
+/// `console::Style` object. It handles multiple space-separated style keywords in a single call,
+/// applying them sequentially to create combined effects (e.g., bold red text).
+///
+/// ## Supported Keywords
+///
+/// **Foreground colors:**
+/// - `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
+///
+/// **Background colors:**
+/// - `on_black`, `on_red`, `on_green`, `on_yellow`, `on_blue`, `on_magenta`, `on_cyan`, `on_white`
+///
+/// **Text attributes:**
+/// - `bold`, `italic`, `underline`, `blink`, `reverse`
+/// - `bright_black`, `bright_red`, ..., `bright_white` (bright variants)
+///
+/// **Special keywords (no-op):**
+/// - `unchanged`, `default`, `dark`, `none`, empty strings
+///
+/// **ANSI escape sequences:**
+/// - Raw escape codes like `"\033[38;5;140m"` are skipped (not yet supported)
+///
+/// ## Arguments
+///
+/// * `text` - Space-separated style keywords (e.g., "bold red on_yellow")
+///
+/// ## Returns
+///
+/// - `Ok(Style)` - Successfully parsed style with all keywords applied
+/// - `Err(())` - Unrecognized keyword encountered (logs "unhandled style: ...")
+///
+/// ## Implementation Details
+///
+/// - Uses `try_fold` to sequentially apply each keyword to build a composite style
+/// - Short-circuits on first unrecognized keyword
+/// - Splits on spaces to handle multiple keywords
+/// - Keywords are case-sensitive and must match exactly
+///
+/// # Examples
+///
+/// ```ignore
+/// use console::Style;
+/// 
+/// // Single color
+/// let style = style_from_str("red").unwrap();
+/// 
+/// // Multiple attributes
+/// let style = style_from_str("bold cyan").unwrap();
+/// 
+/// // Color with background
+/// let style = style_from_str("white on_blue").unwrap();
+/// 
+/// // Bright color variant
+/// let style = style_from_str("bold bright_green").unwrap();
+/// 
+/// // Invalid keyword
+/// assert!(style_from_str("not_a_color").is_err());
+/// ```
+fn style_from_str(text: &str) -> Result<console::Style, ()> {
+    text.split(' ')
+        .try_fold(console::Style::new(), |style, word| {
+            // Handle ANSI escape sequences like "\033[38;5;140m"
+            if word.starts_with('"') && word.contains("\\033[") {
+                // Skip ANSI escape codes for now - they're raw color codes
+                return Ok(style);
+            }
+            match word {
+                // Empty string or no-op keywords - return style unchanged
+                "" => Ok(style),
+                "unchanged" => Ok(style),
+                "default" => Ok(style),
+                "dark" => Ok(style),
+                "none" => Ok(style),
+                
+                // Foreground colors - standard ANSI colors
+                "black" => Ok(style.black()),
+                "red" => Ok(style.red()),
+                "green" => Ok(style.green()),
+                "yellow" => Ok(style.yellow()),
+                "blue" => Ok(style.blue()),
+                "magenta" => Ok(style.magenta()),
+                "cyan" => Ok(style.cyan()),
+                "white" => Ok(style.white()),
+                
+                // Background colors - with on_ prefix for background
+                "on_black" => Ok(style.on_black()),
+                "on_red" => Ok(style.on_red()),
+                "on_green" => Ok(style.on_green()),
+                "on_yellow" => Ok(style.on_yellow()),
+                "on_blue" => Ok(style.on_blue()),
+                "on_magenta" => Ok(style.on_magenta()),
+                "on_cyan" => Ok(style.on_cyan()),
+                "on_white" => Ok(style.on_white()),
+                
+                // Text attributes - styling options
+                "bold" => Ok(style.bold()),
+                "underline" => Ok(style.underlined()),
+                "italic" => Ok(style.italic()),
+                "blink" => Ok(style.blink()),
+                "reverse" => Ok(style.reverse()),
+                
+                // Bright color variants - high-intensity colors
+                "bright_black" => Ok(style.bright().black()),
+                "bright_red" => Ok(style.bright().red()),
+                "bright_green" => Ok(style.bright().green()),
+                "bright_yellow" => Ok(style.bright().yellow()),
+                "bright_blue" => Ok(style.bright().blue()),
+                "bright_magenta" => Ok(style.bright().magenta()),
+                "bright_cyan" => Ok(style.bright().cyan()),
+                "bright_white" => Ok(style.bright().white()),
+                
+                // Unknown keyword - log and return error
+                _ => {
+                    println!("unhandled style: {}", word);
+                    Err(())
+                }
+            }
+        })
+}
+
+/// Parse a comma-separated list of style keywords into a vector of Styles.
+///
+/// This function processes a comma-separated style specification string (as used in grcat config)
+/// and converts it into a vector of `console::Style` objects. Each comma-separated section is
+/// passed individually to `style_from_str()` for parsing.
+///
+/// ## Format
+///
+/// Comma-separated style specifications are used in grcat.conf files to define styles for
+/// different capture groups in a regex match. For example:
+/// ```ignore
+/// regexp=^(ERROR|WARN|INFO) (\d+ms)
+/// colours=bold red,yellow,green
+/// ```
+/// This creates 3 styles:
+/// 1. `bold red` for first capture group (ERROR|WARN|INFO)
+/// 2. `yellow` for second capture group (\d+ms)
+/// 3. `green` for subsequent matches
+///
+/// ## Arguments
+///
+/// * `text` - Comma-separated style keywords (e.g., "bold red,yellow,green")
+///
+/// ## Returns
+///
+/// - `Ok(Vec<Style>)` - Successfully parsed all styles
+/// - `Err(())` - Any style keyword failed to parse (short-circuits on first error)
+///
+/// ## Implementation Details
+///
+/// - Splits input string on commas: `text.split(',')`
+/// - Passes each section to `style_from_str()` for individual parsing
+/// - Uses `collect()` with `?` operator to short-circuit on first error
+/// - Returns all parsed styles in a vector
+///
+/// # Examples
+///
+/// ```ignore
+/// // Single style
+/// let styles = styles_from_str("bold red").unwrap();
+/// assert_eq!(styles.len(), 1);
+/// 
+/// // Multiple styles for multiple capture groups
+/// let styles = styles_from_str("bold red,yellow,green").unwrap();
+/// assert_eq!(styles.len(), 3);
+/// 
+/// // With no-op keywords
+/// let styles = styles_from_str("bold red,default,unchanged").unwrap();
+/// assert_eq!(styles.len(), 3);
+/// 
+/// // Error if any style is invalid
+/// assert!(styles_from_str("bold red,invalid_color,green").is_err());
+/// ```
+fn styles_from_str(text: &str) -> Result<Vec<console::Style>, ()> {
+    text.split(',').map(|e| style_from_str(e)).collect()
+}
+
+/// Configuration reader for the main grc.conf file.
+///
+/// This struct implements an iterator over GRC configuration rules. Each rule maps
+/// a command name pattern (regex) to a specific grcat configuration file that defines
+/// how to colorize that command's output.
+///
+/// ## File Format
+///
+/// The grc.conf file uses a paired-line format:
+/// ```text
+/// # Comment lines start with # and are ignored
+/// ^ping           # First line: regex pattern to match command names
+/// conf.ping       # Second line: path to grcat config file for matching commands
+/// 
+/// ^curl
+/// conf.curl
+/// 
+/// ^(ls|dir)
+/// conf.ls
+/// ```
+///
+/// Rules are separated by blank lines or comments. Each complete rule consists of:
+/// 1. A regex pattern (first non-comment line of the pair)
+/// 2. A config file path (second non-comment line of the pair)
+///
+/// ## Parsing Behavior
+///
+/// - Comments (lines starting with '#' or whitespace followed by '#') are skipped
+/// - Blank lines and lines with only whitespace are ignored
+/// - Consecutive non-comment lines form a rule pair
+/// - Malformed regexes in the pattern line cause that rule to be skipped
+/// - The reader gracefully handles incomplete rules (pattern without config)
+///
+/// ## Generic Parameter
+///
+/// * `A` - A type implementing `BufRead`, typically created from:
+///   - `std::io::BufReader<File>` for file input
+///   - `std::io::BufReader<&[u8]>` for in-memory buffers
+///
+/// # Examples
+///
+/// ```ignore
+/// use std::io::BufReader;
+/// use std::fs::File;
+/// use rgrc::grc::GrcConfigReader;
+/// 
+/// let file = File::open("~/.config/rgrc/grc.conf")?;
+/// let reader = BufReader::new(file);
+/// let config_reader = GrcConfigReader::new(reader.lines());
+/// 
+/// for (regex, config_path) in config_reader {
+///     println!("Pattern: {:?}, Config: {}", regex, config_path);
+/// }
+/// ```
+pub struct GrcConfigReader<A> {
+    inner: Lines<A>,
+}
+
+impl<A: BufRead> GrcConfigReader<A> {
+    /// Create a new GRC configuration reader from a line iterator.
+    ///
+    /// # Arguments
+    ///
+    /// * `inner` - A `Lines<A>` iterator yielding lines from a buffered reader
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use std::io::BufReader;
+    /// use std::fs::File;
+    /// 
+    /// let file = File::open("~/.config/rgrc/grc.conf")?;
+    /// let reader = BufReader::new(file);
+    /// let config_reader = GrcConfigReader::new(reader.lines());
+    /// ```
+    pub fn new(inner: Lines<A>) -> Self {
+        GrcConfigReader { inner }
+    }
+
+    /// Skip to the next non-empty, non-comment line.
+    ///
+    /// This helper method iterates through the input lines and returns the first line that is:
+    /// - Not a comment (does not start with '#')
+    /// - Not empty or whitespace-only
+    /// - Not a line where whitespace precedes a comment character
+    ///
+    /// Comments are detected using the regex pattern `^[- \t]*(#|$)` which matches:
+    /// - Lines starting with optional whitespace/dashes followed by '#' (comments)
+    /// - Lines that are empty or whitespace-only (matches end of line via `$`)
+    ///
+    /// ## Returns
+    ///
+    /// - `Some(String)` - Trimmed content of the next valid line
+    /// - `None` - EOF reached, no more content lines available
+    ///
+    /// ## Error Handling
+    ///
+    /// If a line read error occurs, iteration stops and returns None.
+    ///
+    /// # Examples
+    ///
+    /// With input:
+    /// ```text
+    /// # This is a comment
+    /// 
+    /// ^ping
+    /// conf.ping
+    /// ```
+    /// `next_content_line()` will skip the comment and blank line, returning `"^ping"`
+    fn next_content_line(&mut self) -> Option<String> {
+        // Regex pattern explanation:
+        // ^[- \t]*(#|$)
+        // - ^       : Start of line
+        // - [- \t]* : Zero or more dashes, spaces, or tabs
+        // - (#|$)   : Either a hash (comment start) or end of line (empty/whitespace only)
+        //
+        // This matches:
+        // - Comment lines: "# comment" or "  # comment"
+        // - Empty lines: "" or "   " (just whitespace)
+        // But NOT:
+        // - "^ping" (regex line)
+        // - "conf.ping" (config path line)
+        let re = Regex::new("^[- \t]*(#|$)").unwrap();
+        for line in &mut self.inner {
+            match line {
+                Ok(line2) => {
+                    // If line doesn't match the comment/empty pattern, it's a content line
+                    if !re.is_match(&line2).unwrap() {
+                        return Some(line2.trim().to_string());
+                    }
+                }
+                Err(_) => break,  // Stop on read error
+            }
+        }
+        None  // No more content lines (EOF)
+    }
+}
+
+/// Iterator that yields (regex, config_file_path) pairs from grc.conf.
+///
+/// This iterator reads pairs of content lines from a grc.conf file and yields them as
+/// `(Regex, String)` tuples where:
+/// - **Regex** is the compiled regex pattern for matching command names
+/// - **String** is the path to the corresponding grcat configuration file
+///
+/// ## Iteration Behavior
+///
+/// For each complete rule pair in the config file:
+/// 1. Reads the first content line (regex pattern)
+/// 2. Reads the second content line (config file path)
+/// 3. Compiles the regex pattern
+/// 4. If compilation succeeds, yields `(regex, path)` tuple
+/// 5. If regex compilation fails, logs error and moves to next rule
+/// 6. If incomplete rule (only pattern, no path), stops iteration
+///
+/// ## Error Handling
+///
+/// - **Malformed regexes**: Logged via debug_println and skipped, next rule attempted
+/// - **Incomplete rules**: Iteration stops
+/// - **IO errors**: Treated as EOF, iteration stops
+///
+/// # Examples
+///
+/// ```ignore
+/// use std::io::BufReader;
+/// use std::fs::File;
+/// 
+/// let file = File::open("~/.config/rgrc/grc.conf")?;
+/// let reader = BufReader::new(file);
+/// let config_reader = GrcConfigReader::new(reader.lines());
+/// 
+/// for (pattern_regex, config_file) in config_reader {
+///     // Each iteration yields a command pattern and its config file
+///     println!("Command pattern: {:?}", pattern_regex);
+///     println!("Config file: {}", config_file);
+/// }
+/// ```
+impl<A: BufRead> Iterator for GrcConfigReader<A> {
+    type Item = (Regex, String);
+
+    /// Return the next (regex, config_file_path) pair from the grc.conf file.
+    ///
+    /// # Returns
+    ///
+    /// - `Some((Regex, String))` - Next complete rule pair
+    /// - `None` - EOF or incomplete rule encountered
+    ///
+    /// # Implementation Notes
+    ///
+    /// 1. Reads pattern line using `next_content_line()`
+    /// 2. Reads config path line using `next_content_line()`
+    /// 3. Compiles pattern string into Regex
+    /// 4. If regex is malformed, recursively calls `self.next()` to skip and try next rule
+    /// 5. If successful, returns tuple of (compiled_regex, config_path)
+    /// 6. If pattern or path line is missing, returns None (stops iteration)
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(regexp) = self.next_content_line() {
+            if let Some(filename) = self.next_content_line() {
+                if let Ok(re) = Regex::new(&regexp) {
+                    // Successfully compiled regex, return the rule pair
+                    Some((re, filename))
+                } else {
+                    // Malformed regex pattern - log and skip to next rule
+                    // Recursively call self.next() to continue with next entry
+                    self.next()
+                }
+            } else {
+                // Pattern without config file - incomplete rule, stop
+                None
+            }
+        } else {
+            // No pattern line found - EOF or read error
+            None
+        }
+    }
+}
+
+/// Reader for grcat configuration files.
+///
+/// This struct implements an iterator over grcat configuration rules. Each rule defines
+/// a regex pattern matched against command output and associated console styles (colors,
+/// attributes) to apply to matching text.
+///
+/// ## File Format
+///
+/// The grcat.conf file uses a key=value format with alphanumeric line starts:
+/// ```text
+/// regexp=^(ERROR|WARN|INFO)\s+(\d+ms)
+/// colours=bold red,yellow,green
+/// 
+/// regexp=^(PASS|OK)\s+
+/// colours=bold green
+/// 
+/// regexp=status:\s+(\w+)
+/// colours=cyan
+/// ```
+///
+/// ## Entry Structure
+///
+/// Each configuration entry consists of consecutive lines starting with alphanumeric characters.
+/// An entry ends when a non-alphanumeric line is encountered. Each entry can contain:
+///
+/// **Required keys:**
+/// - `regexp` - Regex pattern to match against output text
+///
+/// **Optional keys:**
+/// - `colours` - Comma-separated console styles for capture groups
+/// - Other keys are accepted but ignored
+///
+/// ## Parsing Behavior
+///
+/// - **Entry boundaries**: Marked by non-alphanumeric lines (comments, blank lines)
+/// - **Comments and blanks**: Skipped (non-alphanumeric)
+/// - **Invalid regexes**: Entry is skipped, iteration continues
+/// - **Missing regexp key**: Entry is skipped
+/// - **Missing colours key**: Entry is valid with empty color list
+/// - **Key=value format**: Supports spaces around '=' (e.g., `regexp = pattern`)
+///
+/// ## Generic Parameter
+///
+/// * `A` - A type implementing `BufRead`, typically:
+///   - `std::io::BufReader<File>` for file input
+///   - `std::io::BufReader<&[u8]>` for in-memory buffers
+///
+/// # Examples
+///
+/// ```ignore
+/// use std::io::BufReader;
+/// use std::fs::File;
+/// 
+/// let file = File::open("~/.config/rgrc/conf.ping")?;
+/// let reader = BufReader::new(file);
+/// let grcat_reader = GrcatConfigReader::new(reader.lines());
+/// 
+/// for entry in grcat_reader {
+///     println!("Pattern: {:?}", entry.regex);
+///     println!("Styles: {:?}", entry.colors);
+/// }
+/// ```
+pub struct GrcatConfigReader<A> {
+    inner: Lines<A>,
+}
+
+impl<A: BufRead> GrcatConfigReader<A> {
+    /// Create a new grcat configuration reader from a line iterator.
+    ///
+    /// # Arguments
+    ///
+    /// * `inner` - A `Lines<A>` iterator yielding lines from a buffered reader
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use std::io::BufReader;
+    /// use std::fs::File;
+    /// 
+    /// let file = File::open("~/.config/rgrc/conf.ping")?;
+    /// let reader = BufReader::new(file);
+    /// let grcat_reader = GrcatConfigReader::new(reader.lines());
+    /// ```
+    pub fn new(inner: Lines<A>) -> Self {
+        GrcatConfigReader { inner }
+    }
+
+    /// Fetch the next alphanumeric line (skipping comments/blank lines).
+    ///
+    /// In grcat format, configuration entries start with alphanumeric characters (a-zA-Z0-9).
+    /// All other lines (comments, blank lines) are ignored. This method is used to find the
+    /// start of a new configuration entry.
+    ///
+    /// The regex pattern `^[a-zA-Z0-9]` matches lines that start with alphanumeric characters,
+    /// which indicates the beginning of a key=value line.
+    ///
+    /// ## Returns
+    ///
+    /// - `Some(String)` - Next line starting with alphanumeric character (trimmed)
+    /// - `None` - EOF reached, no more entries
+    ///
+    /// ## Error Handling
+    ///
+    /// If a line read error occurs, iteration stops and returns None.
+    ///
+    /// # Examples
+    ///
+    /// With input:
+    /// ```text
+    /// # Comment line
+    /// 
+    /// regexp=^ERROR
+    /// colours=bold red
+    /// 
+    /// regexp=^WARN
+    /// ```
+    /// `next_alphanumeric()` will skip comments and blanks, returning:
+    /// 1. `"regexp=^ERROR"`
+    /// 2. `"colours=bold red"`
+    /// 3. `"regexp=^WARN"`
+    fn next_alphanumeric(&mut self) -> Option<String> {
+        // Pattern ^[a-zA-Z0-9] matches lines starting with a letter or digit
+        let alphanumeric = Regex::new("^[a-zA-Z0-9]").unwrap();
+        for line in (&mut self.inner).flatten() {
+            // Skip non-matching lines (comments, blanks)
+            if alphanumeric.is_match(&line).unwrap_or(false) {
+                return Some(line.trim().to_string());
+            }
+        }
+        None  // No more alphanumeric lines (EOF)
+    }
+
+    /// Fetch the next line if it's alphanumeric, or None to signal end of entry.
+    ///
+    /// This method is used during entry parsing to continue reading key=value pairs
+    /// that belong to the current configuration entry. As long as lines start with
+    /// alphanumeric characters, they belong to the same entry. When a non-alphanumeric
+    /// line is encountered (comment, blank line), it signals the end of the current
+    /// entry, and the method returns None.
+    ///
+    /// ## Returns
+    ///
+    /// - `Some(String)` - Next line if it starts with alphanumeric (still in this entry)
+    /// - `None` - End of entry or EOF (non-alphanumeric line or no more input)
+    ///
+    /// ## Implementation Details
+    ///
+    /// 1. Calls `self.inner.next()` to get the next line from the buffer
+    /// 2. If EOF, returns None (no next line available)
+    /// 3. If line starts with alphanumeric, returns it (still in entry)
+    /// 4. If line doesn't start with alphanumeric, returns None (end of entry)
+    ///
+    /// ## Entry Boundary Detection
+    ///
+    /// This method implements entry boundary detection:
+    /// - Alphanumeric start → still in current entry
+    /// - Non-alphanumeric start → end of entry (return None)
+    /// - Examples of entry-ending lines:
+    ///   - Blank line: ""
+    ///   - Comment: "# This is a comment"
+    ///   - Whitespace: "   "
+    ///   - Any line starting with non-alphanumeric: "---", "$", etc.
+    fn following(&mut self) -> Option<String> {
+        // Pattern ^[a-zA-Z0-9] matches lines starting with a letter or digit
+        let alphanumeric = Regex::new("^[a-zA-Z0-9]").unwrap();
+        if let Some(Ok(line)) = self.inner.next() {
+            // If line starts with alphanumeric, it's part of this entry
+            if alphanumeric.is_match(&line).unwrap_or(false) {
+                Some(line)
+            } else {
+                // Non-alphanumeric line marks end of entry
+                None
+            }
+        } else {
+            // EOF reached
+            None
+        }
+    }
+}
+
+/// A single grcat configuration entry (regex + colors).
+///
+/// This struct represents a complete colorization rule parsed from a grcat configuration file.
+/// Each entry contains a regex pattern and associated console styles that define how to colorize
+/// text matching the pattern.
+///
+/// ## Structure
+///
+/// - **regex** - A compiled `fancy_regex::Regex` pattern to match against output text
+/// - **colors** - A vector of `console::Style` objects corresponding to capture groups
+///
+/// ## Semantics
+///
+/// When a line of output matches `regex`:
+/// - The 1st capture group is styled with `colors[0]` (if present)
+/// - The 2nd capture group is styled with `colors[1]` (if present)
+/// - And so on for additional capture groups
+/// - Non-capturing text remains unstyled
+///
+/// If `colors` has fewer entries than capture groups, excess groups are not styled.
+/// If `colors` is empty, the regex matches but nothing is colored (useful for filtering).
+///
+/// ## Derived Traits
+///
+/// - **Debug**: Allows printing entry contents for debugging
+/// - **Clone**: Enables copying entries for use in multiple places
+///
+/// # Examples
+///
+/// ```ignore
+/// use fancy_regex::Regex;
+/// use console::Style;
+/// use rgrc::grc::GrcatConfigEntry;
+/// 
+/// let regex = Regex::new(r"^(ERROR|WARN) (\d+ms)$").unwrap();
+/// let colors = vec![
+///     Style::new().bold().red(),      // ERROR|WARN
+///     Style::new().yellow(),           // \d+ms
+/// ];
+/// let entry = GrcatConfigEntry { regex, colors };
+/// ```
+#[derive(Debug, Clone)]
+pub struct GrcatConfigEntry {
+    /// The compiled regex pattern to match against output text
+    pub regex: Regex,
+    /// Styles to apply to capture groups (index 0 = group 1, index 1 = group 2, etc.)
+    pub colors: Vec<console::Style>,
+}
+
+impl<A: BufRead> Iterator for GrcatConfigReader<A> {
+    type Item = GrcatConfigEntry;
+
+    /// Parse and return the next GrcatConfigEntry from the grcat config file.
+    ///
+    /// This method implements the core parsing logic for grcat configuration files.
+    /// It processes configuration entries consisting of key=value pairs until a
+    /// non-alphanumeric line is encountered (entry boundary).
+    ///
+    /// ## Processing Steps
+    ///
+    /// 1. **Find entry start**: Call `next_alphanumeric()` to find the next entry
+    /// 2. **Parse key=value pairs**: Loop through consecutive alphanumeric lines
+    /// 3. **Extract keys**: Parse "regexp=..." and "colours=..." assignments
+    /// 4. **Validate regex**: Compile the regexp string; skip entry if invalid
+    /// 5. **Parse styles**: Convert colour specification to console::Style vector
+    /// 6. **Check boundaries**: Use `following()` to detect end of entry
+    /// 7. **Return or skip**: Yield entry if valid regex found, otherwise skip
+    ///
+    /// ## Key=Value Format
+    ///
+    /// The regex pattern matches `key = value` format:
+    /// - Pattern: `^([a-z_]+)\s*=\s*(.*)$`
+    /// - Supports spaces around the '=' sign
+    /// - Keys are lowercase with underscores
+    /// - Examples: `regexp=pattern`, `colours = style1, style2`
+    ///
+    /// ## Entry Requirements
+    ///
+    /// **Required:**
+    /// - At least one line starting with `regexp=` containing a valid regex
+    ///
+    /// **Optional:**
+    /// - `colours=` line with comma-separated style keywords
+    /// - If omitted, colors default to empty vector (no styling applied)
+    ///
+    /// **Ignored:**
+    /// - Any other keys are silently ignored
+    /// - Non-alphanumeric lines between entries are skipped
+    ///
+    /// ## Error Handling
+    ///
+    /// - **Invalid regex**: Entry is skipped, iteration continues to next entry
+    /// - **Invalid colors**: Log via debug_println, colors default to empty
+    /// - **Missing regexp**: Entry is skipped
+    /// - **Incomplete entry**: Iteration stops (None)
+    ///
+    /// # Examples
+    ///
+    /// File content:
+    /// ```text
+    /// regexp=^(ERROR|WARN) (\d+ms)$
+    /// colours=bold red,yellow
+    /// 
+    /// regexp=^OK\s+
+    /// colours=green
+    /// ```
+    ///
+    /// Yields two GrcatConfigEntry items:
+    /// 1. regex matches ERROR/WARN with capture group for timing
+    /// 2. regex matches OK status line
+    fn next(&mut self) -> Option<Self::Item> {
+        // Regex pattern to parse key=value lines
+        // Pattern: ^([a-z_]+)\s*=\s*(.*)$
+        // - ^([a-z_]+)  : Key is one or more lowercase letters/underscores
+        // - \s*=\s*     : Optional whitespace around equals sign
+        // - (.*)$       : Value is everything to end of line
+        // Examples matched:
+        // - "regexp=^ERROR"
+        // - "colours = bold red, yellow"
+        // - "key = value with spaces"
+        let re = Regex::new("^([a-z_]+)\\s*=\\s*(.*)$").unwrap();
+        let mut ln: String;
+        
+        while let Some(line) = self.next_alphanumeric() {
+            ln = line;
+            let mut regex: Option<Regex> = None;
+            let mut colors: Option<Vec<console::Style>> = None;
+
+            // Loop over all consecutive alphanumeric lines belonging to this entry
+            // until we hit a non-alphanumeric line (entry boundary)
+            loop {
+                // Parse the key=value pair from current line
+                let cap = re.captures(&ln).unwrap().unwrap();
+                let key = cap.get(1).unwrap().as_str();
+                let value = cap.get(2).unwrap().as_str();
+                
+                // Process known keys, ignore unknown ones
+                match key {
+                    "regexp" => {
+                        // Attempt to compile the regex pattern
+                        match Regex::new(value) {
+                            Ok(re) => {
+                                regex = Some(re);
+                            }
+                            Err(_exc) => {
+                                // Log error and skip this entry (regex is required)
+                                debug_println!("Failed regexp: {:?}", _exc);
+                            }
+                        }
+                    }
+                    "colours" => {
+                        // Parse comma-separated style keywords into Style vector
+                        // Example: "bold red,yellow,cyan" → [Style::new().bold().red(), Style::new().yellow(), Style::new().cyan()]
+                        colors = Some(styles_from_str(value).unwrap());
+                    }
+                    _ => {
+                        // Ignore unknown keys - grcat may add new keys in future versions
+                    }
+                };
+
+                // Attempt to fetch the next line in this entry
+                if let Some(nline) = self.following() {
+                    ln = nline;  // Continue with next line of this entry
+                } else {
+                    // Non-alphanumeric line encountered - end of entry
+                    break;
+                }
+            }
+            
+            // Only emit entry if we successfully parsed a regex (required)
+            if let Some(regex) = regex {
+                return Some(GrcatConfigEntry {
+                    regex,
+                    colors: colors.unwrap_or_default(),  // Empty color list if not specified
+                });
+            }
+            // This entry lacked a valid regex; skip and try next entry
+        }
+        None  // No more entries (EOF)
+    }
+}
