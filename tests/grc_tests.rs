@@ -29,7 +29,7 @@ mod grc_config_reader_tests {
 
     #[test]
     fn test_grc_conf_parsing() {
-        let conf_path = get_etc_dir().join("grc.conf");
+        let conf_path = get_etc_dir().join("rgrc.conf");
         assert!(
             conf_path.exists(),
             "grc.conf should exist at {:?}",
@@ -55,7 +55,7 @@ mod grc_config_reader_tests {
 
     #[test]
     fn test_grc_conf_specific_commands() {
-        let conf_path = get_etc_dir().join("grc.conf");
+        let conf_path = get_etc_dir().join("rgrc.conf");
         let file = File::open(&conf_path).expect("Failed to open grc.conf");
         let reader = BufReader::new(file);
         let grc_reader = GrcConfigReader::new(reader.lines());
@@ -78,7 +78,7 @@ mod grc_config_reader_tests {
 
     #[test]
     fn test_grc_conf_regex_patterns() {
-        let conf_path = get_etc_dir().join("grc.conf");
+        let conf_path = get_etc_dir().join("rgrc.conf");
         let file = File::open(&conf_path).expect("Failed to open grc.conf");
         let reader = BufReader::new(file);
         let grc_reader = GrcConfigReader::new(reader.lines());
@@ -95,7 +95,7 @@ mod grc_config_reader_tests {
 
     #[test]
     fn test_grc_conf_skip_comments() {
-        let conf_path = get_etc_dir().join("grc.conf");
+        let conf_path = get_etc_dir().join("rgrc.conf");
         let file = File::open(&conf_path).expect("Failed to open grc.conf");
         let reader = BufReader::new(file);
         let grc_reader = GrcConfigReader::new(reader.lines());
@@ -366,7 +366,7 @@ mod integration_tests {
 
     #[test]
     fn test_grc_conf_references_valid_conf_files() {
-        let grc_conf_path = get_etc_dir().join("grc.conf");
+        let grc_conf_path = get_etc_dir().join("rgrc.conf");
         let file = File::open(&grc_conf_path).expect("Failed to open grc.conf");
         let reader = BufReader::new(file);
         let grc_reader = GrcConfigReader::new(reader.lines());
@@ -398,7 +398,7 @@ mod integration_tests {
 
     #[test]
     fn test_complete_workflow_grc_conf_to_grcat() {
-        let grc_conf_path = get_etc_dir().join("grc.conf");
+        let grc_conf_path = get_etc_dir().join("rgrc.conf");
         let file = File::open(&grc_conf_path).expect("Failed to open grc.conf");
         let reader = BufReader::new(file);
         let grc_reader = GrcConfigReader::new(reader.lines());
