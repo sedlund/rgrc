@@ -39,9 +39,9 @@ bin: macos linux armv7
 	@tar cvfz "${TARBALL}/${APP_NAME}-${APP_VERSION}-armv7-unknown-linux-musleabihf.tar.gz" -C target/armv7-unknown-linux-musleabihf/release/ ${APP_NAME}
 
 data: rgrc.1.gz
-	@echo Creating data tarball...
+	@echo Creating data zip...
 	@mkdir -p ${TARBALL}
-	@tar cvfz "${TARBALL}/${APP_NAME}-data-${APP_VERSION}.tar.gz" doc/*.gz etc/ share/
+	@zip -r "${TARBALL}/${APP_NAME}-data-${APP_VERSION}.zip" doc/*.gz etc/ share/
 
 lint:
 	cargo clippy --all
