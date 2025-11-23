@@ -95,10 +95,6 @@ jobs:
         run: |
           VERSION=$(grep '^version =' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-      - uses: actions/upload-artifact@v5
-        with:
-          name: rgrc-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/${{ matrix.exe }}
       - name: Zip Release
         uses: TheDoctor0/zip-release@0.6.1
         with:
