@@ -35,24 +35,25 @@ jobs:
           - os: ubuntu-latest
             target: armv7-unknown-linux-musleabihf
             exe: rgrc
-          - os: ubuntu-latest
-            target: mips-unknown-linux-gnu
-            exe: rgrc
-          - os: ubuntu-latest
-            target: mips-unknown-linux-musl
-            exe: rgrc
-          - os: ubuntu-latest
-            target: mipsel-unknown-linux-gnu
-            exe: rgrc
-          - os: ubuntu-latest
-            target: mipsel-unknown-linux-musl
-            exe: rgrc
-          - os: ubuntu-latest
-            target: mips64-unknown-linux-gnuabi64
-            exe: rgrc
-          - os: ubuntu-latest
-            target: mips64el-unknown-linux-gnuabi64
-            exe: rgrc
+          # MIPS targets are not available in stable Rust
+          # - os: ubuntu-latest
+          #   target: mips-unknown-linux-gnu
+          #   exe: rgrc
+          # - os: ubuntu-latest
+          #   target: mips-unknown-linux-musl
+          #   exe: rgrc
+          # - os: ubuntu-latest
+          #   target: mipsel-unknown-linux-gnu
+          #   exe: rgrc
+          # - os: ubuntu-latest
+          #   target: mipsel-unknown-linux-musl
+          #   exe: rgrc
+          # - os: ubuntu-latest
+          #   target: mips64-unknown-linux-gnuabi64
+          #   exe: rgrc
+          # - os: ubuntu-latest
+          #   target: mips64el-unknown-linux-gnuabi64
+          #   exe: rgrc
           - os: macos-latest
             target: x86_64-apple-darwin
             exe: rgrc
@@ -69,13 +70,12 @@ jobs:
       - name: Install cross
         if: matrix.os == 'ubuntu-latest'
         run: cargo install --version 0.1.16 cross
-      # - name: Run tests
-      #   run: |
-      #     if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-      #       cross test --release --target ${{ matrix.target }} --verbose
-      #     else
-      #       cargo test --release --target ${{ matrix.target }} --verbose
-      #     fi
+      - name: Run tests (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: cross test --target ${{ matrix.target }} --verbose
+      - name: Run tests (macOS/Windows)
+        if: matrix.os != 'ubuntu-latest'
+        run: cargo test --target ${{ matrix.target }} --verbose
       - name: Build release (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: cross build --release --target ${{ matrix.target }}
@@ -85,8 +85,6 @@ jobs:
       - name: Run UPX
         # Upx may not support some platforms. Ignore the errors
         continue-on-error: true
-        # Disable upx for mips. See https://github.com/upx/upx/issues/387
-        if: matrix.os == 'ubuntu-latest' && !contains(matrix.target, 'mips')
         uses: crazy-max/ghaction-upx@v1
         with:
           version: v3.96
