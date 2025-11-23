@@ -105,17 +105,16 @@ jobs:
         uses: TheDoctor0/zip-release@0.6.1
         with:
           type: zip
-          filename: rgrc-bin-${VERSION}-${{ matrix.target }}.zip
+          filename: rgrc-${{ env.VERSION }}-${{ matrix.target }}.zip
           directory: target/${{ matrix.target }}/release/
           path: ${{ matrix.exe }}
       - uses: actions/upload-artifact@v5
         with:
-          name: rgrc-bin-${VERSION}-${{ matrix.target }}.zip
-          path: target/${{ matrix.target }}/release/rgrc-bin-${VERSION}-${{ matrix.target }}.zip
+          name: rgrc-${{ env.VERSION }}-${{ matrix.target }}.zip
+          path: target/${{ matrix.target }}/release/rgrc-${{ env.VERSION }}-${{ matrix.target }}.zip
   data:
     name: Package data files
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v6
       - name: Get version
@@ -129,12 +128,12 @@ jobs:
         run: make data
       - uses: actions/upload-artifact@v5
         with:
-          name: rgrc-data-${VERSION}.zip
-          path: target/tarball/rgrc-data-${VERSION}.zip
+          name: rgrc-data-${{ env.VERSION }}.zip
+          path: target/tarball/rgrc-data-${{ env.VERSION }}.zip
   publish:
     name: Publish release
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    # if: startsWith(github.ref, 'refs/tags/')
     needs: [release, data]
     steps:
       - name: Download all artifacts
