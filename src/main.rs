@@ -35,7 +35,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 /// - Searches multiple standard paths for configuration files.
 ///
 /// Command-line options:
-/// - --colour on|off|auto: Override color output mode.
+/// - --color on|off|auto: Override color output mode.
 /// - --aliases: Print shell aliases for commonly colorized commands.
 /// - --all-aliases: Print shell aliases for all known commands.
 /// - --except CMD1,CMD2,...: Exclude commands from alias generation.
@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // 2. Either we're generating all aliases (--all-aliases) OR the command exists in PATH (which::which)
             if !except_set.contains(cmd as &str) && (args.show_all_aliases || command_exists(cmd)) {
                 // Print shell alias in the format: alias CMD='grc CMD';
-                println!("alias {}='{} {}';", cmd, grc, cmd);
+                println!("alias {}='{} {}'", cmd, grc, cmd);
             }
         }
         std::process::exit(0);

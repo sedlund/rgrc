@@ -719,8 +719,12 @@ pub struct GrcatConfigEntry {
     pub regex: Regex,
     /// Styles to apply to capture groups (index 0 = group 1, index 1 = group 2, etc.)
     pub colors: Vec<console::Style>,
+    /// If true, this rule should be ignored at runtime (treated as disabled).
     pub skip: bool,
+    /// How many times to apply this rule per line (Once/More/Stop).
     pub count: GrcatConfigEntryCount,
+    /// Optional replacement template used when `replace` is specified in the
+    /// configuration. Placeholders like `\1` are substituted with capture groups.
     pub replace: String,
 }
 

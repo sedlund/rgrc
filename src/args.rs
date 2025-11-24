@@ -5,19 +5,57 @@
 
 use crate::ColorMode;
 
-/// Parsed command-line arguments
+/// Parsed command-line arguments for the `rgrc` binary.
+///
+/// This structure contains the semantic options extracted from the raw
+/// command-line invocation. It is returned by `parse_args()` for use by
+/// the main application logic.
+///
+/// # Fields
+///
+/// - `color`: Color mode requested by the user (`On`, `Off`, `Auto`).
+/// - `command`: The command and its arguments to run (first element is the
+///   executable name).
+/// - `show_aliases`: Whether to print shell aliases for available commands.
+/// - `show_all_aliases`: Whether to print aliases for all known commands.
+/// - `except_aliases`: Comma-separated list of commands to exclude when
+///   generating aliases.
+///
+/// # Example
+///
+/// ```ignore
+/// let args = rgrc::args::parse_args()?;
+/// println!("Color mode: {:?}", args.color);
+/// ```
 #[derive(Debug, PartialEq)]
 pub struct Args {
+    /// Requested color mode (on/off/auto)
     pub color: ColorMode,
+    /// Command to execute and its arguments
     pub command: Vec<String>,
+    /// Print aliases for detected commands in PATH
     pub show_aliases: bool,
+    /// Print aliases for all supported commands
     pub show_all_aliases: bool,
+    /// Commands to exclude from alias generation
     pub except_aliases: Vec<String>,
 }
 
 /// Parse command-line arguments
 ///
 /// Returns parsed arguments or an error message
+/// Parse command-line arguments and return an `Args` structure.
+///
+/// This function reads `std::env::args()` (skipping the program name) and
+/// supports flags documented in the CLI help. On invalid usage it returns an
+/// `Err(String)` describing the problem.
+///
+/// # Examples
+///
+/// ```ignore
+/// // Simulated invocation: rgrc --color=on ping -c 1 google.com
+/// let args = rgrc::args::parse_args().expect("valid args");
+/// ```
 pub fn parse_args() -> Result<Args, String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
 

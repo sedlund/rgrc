@@ -50,13 +50,23 @@ fn expand_tilde(path: &str) -> String {
 include!(concat!(env!("OUT_DIR"), "/preprocessed_configs.rs"));
 
 // Define empty constants when embed-configs is disabled
+/// Precompiled mapping of grc regex rules to config filenames produced at build
+/// time when the `embed-configs` feature is enabled. When the feature is
+/// disabled this is an empty slice.
 #[cfg(not(feature = "embed-configs"))]
 pub static PRECOMPILED_GRC_RULES: &[(&str, &str)] = &[];
+
+/// Precompiled embedded grcat configuration contents (name → content) built at
+/// compile time when `embed-configs` is enabled. When the feature is disabled
+/// this is an empty slice.
 #[cfg(not(feature = "embed-configs"))]
 pub static PRECOMPILED_CONFIGS: &[(&str, &str)] = &[];
 
-// Embedded configuration files
-// These are compiled into the binary for cargo install compatibility
+/// Embedded configuration files compiled into the binary when the
+/// `embed-configs` feature is enabled. Each entry is a tuple of
+/// `(filename, contents)` corresponding to files under `share/conf.*`.
+/// This allows `rgrc` to function without external config files when
+/// installed via `cargo install`.
 #[cfg(feature = "embed-configs")]
 macro_rules! embed_config {
     ($name:expr) => {
@@ -162,8 +172,12 @@ pub const EMBEDDED_CONFIGS: &[(&str, &str)] = &[
 ];
 
 #[cfg(not(feature = "embed-configs"))]
+/// When `embed-configs` is disabled, there are no embedded config files.
 pub const EMBEDDED_CONFIGS: &[(&str, &str)] = &[];
 
+/// The bundled `rgrc.conf` contents when `embed-configs` is enabled.
+/// This mirrors the on-disk `etc/rgrc.conf` file and is empty when embedding
+/// is disabled.
 #[cfg(feature = "embed-configs")]
 pub const EMBEDDED_GRC_CONF: &str = include_str!("../etc/rgrc.conf");
 
@@ -172,6 +186,10 @@ pub const EMBEDDED_GRC_CONF: &str = "";
 
 // Cached parsed configurations for performance - now truly persistent across calls
 lazy_static::lazy_static! {
+    // Cache of parsed embedded grcat configuration entries.
+    // Key: config filename (e.g. "conf.ping"), Value: parsed vector of entries.
+    // This avoids reparsing embedded files on each invocation and is guarded by
+    // an `RwLock` for concurrent reads.
     static ref PARSED_EMBEDDED_CONFIGS: std::sync::RwLock<std::collections::HashMap<String, Vec<GrcatConfigEntry>>> =
         std::sync::RwLock::new(std::collections::HashMap::new());
 

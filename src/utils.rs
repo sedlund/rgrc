@@ -3,6 +3,18 @@
 //! This module contains various utility functions used throughout the rgrc application.
 
 /// Simple command existence check without external dependencies
+/// Check whether an executable named `cmd` exists on the user's `PATH`.
+///
+/// This performs a lightweight search of directories in the `PATH` environment
+/// variable and returns `true` if a file with the given name exists in any
+/// directory. On Windows, common executable extensions are also considered.
+///
+/// # Examples
+///
+/// ```ignore
+/// assert!(rgrc::utils::command_exists("ls"));
+/// assert!(!rgrc::utils::command_exists("this-command-doesnt-exist-xyz"));
+/// ```
 pub fn command_exists(cmd: &str) -> bool {
     // Empty command is not valid
     if cmd.is_empty() {
@@ -31,6 +43,10 @@ pub fn command_exists(cmd: &str) -> bool {
 }
 
 /// Print help message to stdout
+/// Print a short help/usage message to stdout.
+///
+/// This is a convenience helper used by the binary; it prints the basic
+/// options and examples to the standard output.
 pub fn print_help() {
     println!("Rusty Generic Colouriser");
     println!();
@@ -51,6 +67,18 @@ pub fn print_help() {
 
 /// Quick check if a command is likely to benefit from colorization (used for Smart strategy)
 /// This is a lightweight check that doesn't require loading rules
+/// Heuristic: does `command` likely benefit from colorization?
+///
+/// This lightweight function returns `true` for commands that historically
+/// produce output that benefits from color highlighting (e.g., `ls`, `ping`,
+/// `df`). It is intentionally conservative and inexpensive to compute.
+///
+/// # Examples
+///
+/// ```ignore
+/// assert!(rgrc::utils::should_use_colorization_for_command_benefit("ls"));
+/// assert!(!rgrc::utils::should_use_colorization_for_command_benefit("echo"));
+/// ```
 pub fn should_use_colorization_for_command_benefit(command: &str) -> bool {
     // Commands that definitely benefit from colorization (have meaningful output to colorize)
     match command {
@@ -69,6 +97,19 @@ pub fn should_use_colorization_for_command_benefit(command: &str) -> bool {
 
 /// Curated list of commands known to work well with grc
 /// These commands have colorization rules that provide meaningful visual improvements
+/// Curated list of commands that ship with colorization rules.
+///
+/// This array contains the command identifiers corresponding to files in
+/// `share/conf.*` and is used by alias generation and the "Always" color
+/// strategy to decide which commands are supported.
+///
+/// # Example
+///
+/// ```ignore
+/// if rgrc::utils::SUPPORTED_COMMANDS.contains(&"ping") {
+///     println!("ping is supported for colorization");
+/// }
+/// ```
 pub const SUPPORTED_COMMANDS: &[&str] = &[
     "ant",
     "blkid",
@@ -107,6 +148,8 @@ pub const SUPPORTED_COMMANDS: &[&str] = &[
     "lsmod",
     "lsof",
     "lspci",
+    "ls",
+    "lsusb",
     "mount",
     "mvn",
     "netstat",
@@ -140,11 +183,19 @@ pub const SUPPORTED_COMMANDS: &[&str] = &[
     "docker",
     "go",
     "iostat",
-    "ls",
-    "lsusb",
 ];
 
 /// Check if a command has colorization rules available (used for Always strategy)
+/// Return `true` when a command has shipped colorization rules (present in
+/// `SUPPORTED_COMMANDS`). This is a simple membership check used by the
+/// Always colorization strategy.
+///
+/// # Examples
+///
+/// ```ignore
+/// assert!(rgrc::utils::should_use_colorization_for_command_supported("ls"));
+/// assert!(!rgrc::utils::should_use_colorization_for_command_supported("unknown"));
+/// ```
 pub fn should_use_colorization_for_command_supported(command: &str) -> bool {
     SUPPORTED_COMMANDS.contains(&command)
 }

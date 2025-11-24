@@ -10,6 +10,11 @@ pub struct LineBufferedWriter<W: std::io::Write> {
 }
 
 impl<W: std::io::Write> LineBufferedWriter<W> {
+    /// Create a new `LineBufferedWriter` wrapping `inner`.
+    ///
+    /// The returned writer will delegate write and flush calls to `inner`,
+    /// but will also flush `inner` whenever a newline (`\n`) byte is written
+    /// to ensure near-real-time line output for interactive commands.
     pub fn new(inner: W) -> Self {
         Self { inner }
     }
@@ -26,6 +31,9 @@ impl<W: std::io::Write> std::io::Write for LineBufferedWriter<W> {
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
+        // Flush the underlying writer.
+        //
+        // This forwards to the wrapped writer's `flush` implementation.
         self.inner.flush()
     }
 }

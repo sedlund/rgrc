@@ -78,20 +78,29 @@ use crate::grc::GrcatConfigEntry;
 ///
 /// This function is thread-safe as it doesn't use any shared mutable state.
 /// Multiple instances can run concurrently on different inputs.
-///
 /// # Examples
 ///
 /// ```ignore
 /// use std::io::Cursor;
+/// use fancy_regex::Regex;
+/// use console::Style;
 /// use rgrc::colorizer::colorize_regex;
+/// use rgrc::grc::GrcatConfigEntry;
 ///
-/// let input = "ERROR: Connection failed\nWARNING: Timeout\n";
+/// // Example: colorize lines beginning with "ERROR:" using a bold red style
+/// let input = "ERROR: Connection failed\nINFO: OK\n";
 /// let mut reader = Cursor::new(input);
 /// let mut output = Vec::new();
-/// let rules = vec![]; // Load rules from config files
 ///
-/// colorize_regex(&mut reader, &mut output, &rules)?;
-/// // Output contains ANSI-styled text
+/// // Construct a simple rule that matches "ERROR: (.*)" and applies a red bold style
+/// let re = Regex::new(r"ERROR: (.*)").unwrap();
+/// let style = Style::new().red().bold();
+/// let entry = GrcatConfigEntry::new(re, vec![style]);
+///
+/// // Call the colorizer; the example is marked `ignore` to avoid running as a doctest
+/// colorize_regex(&mut reader, &mut output, &[entry])?;
+///
+/// // `output` now contains ANSI-styled bytes representing the colored text
 /// ```
 #[allow(dead_code)] // Used in main.rs but may not be detected in all build configurations
 pub fn colorize_regex<R, W>(
