@@ -133,9 +133,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         cmd.stderr(Stdio::inherit()); // Also inherit stderr for consistency
 
         // Spawn and wait for the command
-        let mut child = cmd.spawn().expect("failed to spawn command");
-        let ecode = child.wait().expect("failed to wait on child");
-        std::process::exit(ecode.code().expect("need an exit code"));
+        let mut child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(e) => {
+                // Friendly error for missing executable
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    eprintln!("Error: command not found: '{}'", command_name);
+                    std::process::exit(127);
+                } else {
+                    eprintln!("Failed to spawn '{}': {}", command_name, e);
+                    std::process::exit(1);
+                }
+            }
+        };
+
+        let ecode = match child.wait() {
+            Ok(status) => status,
+            Err(e) => {
+                eprintln!("Failed while waiting for '{}': {}", command_name, e);
+                std::process::exit(1);
+            }
+        };
+        std::process::exit(ecode.code().unwrap_or(1));
     }
 
     // Only pipe stdout when colorization is actually needed
@@ -143,7 +162,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cmd.stdout(Stdio::piped());
 
     // Spawn the command subprocess.
-    let mut child = cmd.spawn().expect("failed to spawn command");
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                eprintln!("Error: command not found: '{}'", command_name);
+                std::process::exit(127);
+            } else {
+                eprintln!("Failed to spawn '{}': {}", command_name, e);
+                std::process::exit(1);
+            }
+        }
+    };
 
     // Colorization is enabled, read from the piped stdout, apply colorization
     // rules line-by-line (or in parallel chunks), and write colored output to stdout.
