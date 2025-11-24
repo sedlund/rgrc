@@ -31,6 +31,104 @@ use std::io::BufRead;
 use std::str::FromStr;
 
 use grc::{GrcConfigReader, GrcatConfigEntry, GrcatConfigReader};
+use shellexpand;
+
+// Embedded configuration files
+// These are compiled into the binary for cargo install compatibility
+macro_rules! embed_config {
+    ($name:expr) => {
+        include_str!(concat!("../share/", $name))
+    };
+}
+
+pub const EMBEDDED_CONFIGS: &[(&str, &str)] = &[
+    ("conf.ant", embed_config!("conf.ant")),
+    ("conf.blkid", embed_config!("conf.blkid")),
+    ("conf.common", embed_config!("conf.common")),
+    ("conf.configure", embed_config!("conf.configure")),
+    ("conf.curl", embed_config!("conf.curl")),
+    ("conf.cvs", embed_config!("conf.cvs")),
+    ("conf.df", embed_config!("conf.df")),
+    ("conf.diff", embed_config!("conf.diff")),
+    ("conf.dig", embed_config!("conf.dig")),
+    ("conf.dnf", embed_config!("conf.dnf")),
+    ("conf.docker-machinels", embed_config!("conf.docker-machinels")),
+    ("conf.dockerimages", embed_config!("conf.dockerimages")),
+    ("conf.dockerinfo", embed_config!("conf.dockerinfo")),
+    ("conf.dockernetwork", embed_config!("conf.dockernetwork")),
+    ("conf.dockerps", embed_config!("conf.dockerps")),
+    ("conf.dockerpull", embed_config!("conf.dockerpull")),
+    ("conf.dockersearch", embed_config!("conf.dockersearch")),
+    ("conf.dockerversion", embed_config!("conf.dockerversion")),
+    ("conf.du", embed_config!("conf.du")),
+    ("conf.dummy", embed_config!("conf.dummy")),
+    ("conf.env", embed_config!("conf.env")),
+    ("conf.esperanto", embed_config!("conf.esperanto")),
+    ("conf.fdisk", embed_config!("conf.fdisk")),
+    ("conf.findmnt", embed_config!("conf.findmnt")),
+    ("conf.free", embed_config!("conf.free")),
+    ("conf.gcc", embed_config!("conf.gcc")),
+    ("conf.getfacl", embed_config!("conf.getfacl")),
+    ("conf.getsebool", embed_config!("conf.getsebool")),
+    ("conf.go-test", embed_config!("conf.go-test")),
+    ("conf.id", embed_config!("conf.id")),
+    ("conf.ifconfig", embed_config!("conf.ifconfig")),
+    ("conf.iostat_sar", embed_config!("conf.iostat_sar")),
+    ("conf.ip", embed_config!("conf.ip")),
+    ("conf.ipaddr", embed_config!("conf.ipaddr")),
+    ("conf.ipneighbor", embed_config!("conf.ipneighbor")),
+    ("conf.iproute", embed_config!("conf.iproute")),
+    ("conf.iptables", embed_config!("conf.iptables")),
+    ("conf.irclog", embed_config!("conf.irclog")),
+    ("conf.iwconfig", embed_config!("conf.iwconfig")),
+    ("conf.jobs", embed_config!("conf.jobs")),
+    ("conf.kubectl", embed_config!("conf.kubectl")),
+    ("conf.last", embed_config!("conf.last")),
+    ("conf.ldap", embed_config!("conf.ldap")),
+    ("conf.log", embed_config!("conf.log")),
+    ("conf.lolcat", embed_config!("conf.lolcat")),
+    ("conf.ls", embed_config!("conf.ls")),
+    ("conf.lsattr", embed_config!("conf.lsattr")),
+    ("conf.lsblk", embed_config!("conf.lsblk")),
+    ("conf.lsmod", embed_config!("conf.lsmod")),
+    ("conf.lsof", embed_config!("conf.lsof")),
+    ("conf.lspci", embed_config!("conf.lspci")),
+    ("conf.lsusb", embed_config!("conf.lsusb")),
+    ("conf.mount", embed_config!("conf.mount")),
+    ("conf.mtr", embed_config!("conf.mtr")),
+    ("conf.mvn", embed_config!("conf.mvn")),
+    ("conf.netstat", embed_config!("conf.netstat")),
+    ("conf.nmap", embed_config!("conf.nmap")),
+    ("conf.ntpdate", embed_config!("conf.ntpdate")),
+    ("conf.php", embed_config!("conf.php")),
+    ("conf.ping", embed_config!("conf.ping")),
+    ("conf.ping2", embed_config!("conf.ping2")),
+    ("conf.proftpd", embed_config!("conf.proftpd")),
+    ("conf.ps", embed_config!("conf.ps")),
+    ("conf.pv", embed_config!("conf.pv")),
+    ("conf.semanageboolean", embed_config!("conf.semanageboolean")),
+    ("conf.semanagefcontext", embed_config!("conf.semanagefcontext")),
+    ("conf.semanageuser", embed_config!("conf.semanageuser")),
+    ("conf.sensors", embed_config!("conf.sensors")),
+    ("conf.showmount", embed_config!("conf.showmount")),
+    ("conf.sockstat", embed_config!("conf.sockstat")),
+    ("conf.sql", embed_config!("conf.sql")),
+    ("conf.ss", embed_config!("conf.ss")),
+    ("conf.stat", embed_config!("conf.stat")),
+    ("conf.sysctl", embed_config!("conf.sysctl")),
+    ("conf.systemctl", embed_config!("conf.systemctl")),
+    ("conf.tcpdump", embed_config!("conf.tcpdump")),
+    ("conf.traceroute", embed_config!("conf.traceroute")),
+    ("conf.tune2fs", embed_config!("conf.tune2fs")),
+    ("conf.ulimit", embed_config!("conf.ulimit")),
+    ("conf.uptime", embed_config!("conf.uptime")),
+    ("conf.vmstat", embed_config!("conf.vmstat")),
+    ("conf.wdiff", embed_config!("conf.wdiff")),
+    ("conf.whois", embed_config!("conf.whois")),
+    ("conf.yaml", embed_config!("conf.yaml")),
+];
+
+pub const EMBEDDED_GRC_CONF: &str = include_str!("../etc/rgrc.conf");
 
 /// Control whether colored output should be enabled for this run.
 ///
@@ -232,6 +330,27 @@ pub const RESOURCE_PATHS: &[&str] = &[
 /// 5. Searches all RESOURCE_PATHS directories for the colorization file
 /// 6. Loads rules from all found colorization files
 pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
+    // First, try to use embedded grc.conf
+    let embedded_result = {
+        let bufreader = std::io::BufReader::new(EMBEDDED_GRC_CONF.as_bytes());
+        let mut configreader = GrcConfigReader::new(bufreader.lines());
+        // Find the first matching rule for this pseudo_command
+        configreader
+            .find(|(re, _config)| re.is_match(pseudo_command).unwrap_or(false))
+            .map(|(_, config)| config)
+    };
+    
+    if let Some(config) = embedded_result {
+        // Search all resource paths for the colorization file
+        return RESOURCE_PATHS
+            .iter()
+            .map(|path| shellexpand::tilde(path))
+            .map(|path| format!("{}/{}", path, config))
+            .flat_map(load_grcat_config)
+            .collect();
+    }
+    
+    // Fallback to file system
     File::open(path)
         .ok()
         .and_then(|f| {
@@ -252,9 +371,7 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
                 .collect()
         })
         .unwrap_or_default()
-}
-
-/// Load colorization rules from a grcat.conf-style configuration file.
+}/// Load colorization rules from a grcat.conf-style configuration file.
 ///
 /// This function reads a grcat.conf file and parses all colorization rules contained
 /// within it. These rules define how specific text patterns should be colored in output.
@@ -320,6 +437,24 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
 /// and result in an empty rule vector. This allows graceful degradation
 /// when configuration files are missing or malformed.
 pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
+    let filename_str = filename.as_ref();
+    
+    // Extract config name from path (e.g., "conf.ping" from "/path/to/conf.ping")
+    let config_name = filename_str
+        .split('/')
+        .last()
+        .unwrap_or(filename_str);
+    
+    // First, try to find embedded config
+    if let Some((_, embedded_content)) = EMBEDDED_CONFIGS.iter().find(|(name, _)| *name == config_name) {
+        // Parse embedded config content
+        let content = embedded_content.as_bytes();
+        let bufreader = std::io::BufReader::new(content);
+        let configreader = GrcatConfigReader::new(bufreader.lines());
+        return configreader.collect();
+    }
+    
+    // Fallback to file system
     File::open(filename.as_ref())
         .ok()
         .map(|grcat_config_file| {
@@ -401,9 +536,9 @@ fn test_load_rules_for_command() {
     // Test loading rules for a known command that should have configuration
     let rules = load_rules_for_command("ping");
 
-    // Since we have rgrc.conf and share/conf.ping, we should get some rules
+    // Since we have embedded rgrc.conf and conf.ping, we should get some rules
     // The exact number may vary, but it should be non-empty for a common command
-    assert!(!rules.is_empty(), "Should load rules for ping command");
+    assert!(!rules.is_empty(), "Should load rules for ping command from embedded configs");
 
     // Verify that the rules are valid GrcatConfigEntry structs
     for rule in &rules {
