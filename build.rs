@@ -1,5 +1,8 @@
+#[cfg(feature = "embed-configs")]
 use std::env;
+#[cfg(feature = "embed-configs")]
 use std::fs;
+#[cfg(feature = "embed-configs")]
 use std::path::Path;
 
 fn main() {
@@ -7,10 +10,15 @@ fn main() {
     println!("cargo:rerun-if-changed=etc/rgrc.conf");
     println!("cargo:rerun-if-changed=share/");
 
-    // Pre-process configurations at build time
+    // Pre-process configurations at build time only when embed-configs feature is enabled
+    #[cfg(feature = "embed-configs")]
     preprocess_configs();
+
+    #[cfg(not(feature = "embed-configs"))]
+    {} // No-op when feature is disabled
 }
 
+#[cfg(feature = "embed-configs")]
 fn preprocess_configs() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let config_path = Path::new(&out_dir).join("preprocessed_configs.rs");
@@ -39,20 +47,20 @@ fn preprocess_configs() {
     // Process individual config files
     output.push_str("pub static PRECOMPILED_CONFIGS: &[(&str, &str)] = &[\n");
     if let Ok(entries) = fs::read_dir("share/") {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                if let Some(file_name) = entry.file_name().to_str() {
-                    if file_name.starts_with("conf.") {
-                        if let Ok(content) = fs::read_to_string(entry.path()) {
-                            // Escape quotes and backslashes for Rust string literal
-                            let escaped_content = content
-                                .replace("\\", "\\\\")
-                                .replace("\"", "\\\"")
-                                .replace("\n", "\\n");
-                            output.push_str(&format!("    (\"{}\", \"{}\"),\n", file_name, escaped_content));
-                        }
-                    }
-                }
+        for entry in entries.flatten() {
+            if let Some(file_name) = entry.file_name().to_str()
+                && file_name.starts_with("conf.")
+                && let Ok(content) = fs::read_to_string(entry.path())
+            {
+                // Escape quotes and backslashes for Rust string literal
+                let escaped_content = content
+                    .replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n");
+                output.push_str(&format!(
+                    "    (\"{}\", \"{}\"),\n",
+                    file_name, escaped_content
+                ));
             }
         }
     }

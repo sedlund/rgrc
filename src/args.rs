@@ -35,9 +35,8 @@ pub fn parse_args() -> Result<Args, String> {
     let mut i = 0;
     while i < args.len() {
         let arg = args[i].as_str();
-        if arg.starts_with("--color=") {
+        if let Some(value) = arg.strip_prefix("--color=") {
             // Handle --color=value format
-            let value = &arg[8..]; // Skip "--color="
             color = match value {
                 "on" => ColorMode::On,
                 "off" => ColorMode::Off,
@@ -264,7 +263,8 @@ mod tests {
                                 return Err("Missing value for --except".to_string());
                             }
                             // Split comma-separated values
-                            except_aliases.extend(args[i + 1].split(',').map(|s| s.trim().to_string()));
+                            except_aliases
+                                .extend(args[i + 1].split(',').map(|s| s.trim().to_string()));
                             i += 2;
                         }
                         "--help" | "-h" => {

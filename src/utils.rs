@@ -54,18 +54,14 @@ pub fn print_help() {
 pub fn should_use_colorization_for_command_benefit(command: &str) -> bool {
     // Commands that definitely benefit from colorization (have meaningful output to colorize)
     match command {
-        "ant" | "blkid" | "curl" | "cvs" | "df" | "diff" | "dig" | "dnf" |
-        "docker" | "du" | "env" | "esperanto" | "fdisk" | "findmnt" | "free" |
-        "gcc" | "getfacl" | "getsebool" | "id" | "ifconfig" | "ip" | "iptables" |
-        "irclog" | "iwconfig" | "jobs" | "kubectl" | "tail" | "last" | "ldap" | "log" |
-        "lolcat" | "lsattr" | "lsblk" | "lsmod" | "lsof" | "lspci" | "lsusb" |
-        "mount" | "mvn" | "netstat" | "nmap" | "ntpdate" | "php" | "ping" |
-        "ping2" | "proftpd" | "ps" | "pv" | "semanage" | "sensors" | "showmount" |
-        "sockstat" | "sql" | "ss" | "stat" | "sysctl" | "systemctl" | "tcpdump" |
-        "traceroute" | "tune2fs" | "ulimit" | "vmstat" | "wdiff" | "whois" |
-        "yaml" | "go" | "iostat" | "ls" => {
-            true
-        }
+        "ant" | "blkid" | "curl" | "cvs" | "df" | "diff" | "dig" | "dnf" | "docker" | "du"
+        | "env" | "esperanto" | "fdisk" | "findmnt" | "free" | "gcc" | "getfacl" | "getsebool"
+        | "id" | "ifconfig" | "ip" | "iptables" | "irclog" | "iwconfig" | "jobs" | "kubectl"
+        | "tail" | "last" | "ldap" | "log" | "lolcat" | "lsattr" | "lsblk" | "lsmod" | "lsof"
+        | "lspci" | "lsusb" | "mount" | "mvn" | "netstat" | "nmap" | "ntpdate" | "php" | "ping"
+        | "ping2" | "proftpd" | "ps" | "pv" | "semanage" | "sensors" | "showmount" | "sockstat"
+        | "sql" | "ss" | "stat" | "sysctl" | "systemctl" | "tcpdump" | "traceroute" | "tune2fs"
+        | "ulimit" | "vmstat" | "wdiff" | "whois" | "yaml" | "go" | "iostat" | "ls" => true,
         // For other commands, assume they don't benefit from colorization
         _ => false,
     }
@@ -164,16 +160,28 @@ mod tests {
         assert!(command_exists("ls"), "ls command should exist");
 
         // Test non-existing command
-        assert!(!command_exists("nonexistent_command_xyz123"), "nonexistent command should not exist");
+        assert!(
+            !command_exists("nonexistent_command_xyz123"),
+            "nonexistent command should not exist"
+        );
 
         // Test with absolute path (if it exists)
-        assert!(command_exists("/bin/echo") || command_exists("/usr/bin/echo"), "echo should exist in standard locations");
+        assert!(
+            command_exists("/bin/echo") || command_exists("/usr/bin/echo"),
+            "echo should exist in standard locations"
+        );
 
         // Test empty string
-        assert!(!command_exists(""), "empty string should not be a valid command");
+        assert!(
+            !command_exists(""),
+            "empty string should not be a valid command"
+        );
 
         // Test command with spaces (should not exist)
-        assert!(!command_exists("command with spaces"), "commands with spaces should not exist");
+        assert!(
+            !command_exists("command with spaces"),
+            "commands with spaces should not exist"
+        );
     }
 
     #[test]
@@ -184,7 +192,9 @@ mod tests {
         assert!(should_use_colorization_for_command_benefit("df"));
 
         // Test commands that don't benefit from colorization
-        assert!(!should_use_colorization_for_command_benefit("unknown_command"));
+        assert!(!should_use_colorization_for_command_benefit(
+            "unknown_command"
+        ));
         assert!(!should_use_colorization_for_command_benefit(""));
     }
 
@@ -196,7 +206,9 @@ mod tests {
         assert!(should_use_colorization_for_command_supported("df"));
 
         // Test unsupported commands
-        assert!(!should_use_colorization_for_command_supported("unknown_command"));
+        assert!(!should_use_colorization_for_command_supported(
+            "unknown_command"
+        ));
         assert!(!should_use_colorization_for_command_supported(""));
     }
 }

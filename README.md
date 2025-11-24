@@ -5,13 +5,13 @@
 
 A fast, Rust-based command-line tool that colorizes the output of other commands using regex-based rules with advanced count/replace functionality, similar to the classic `grc` (Generic Colouriser) utility.
 
-**Latest Features**: Full implementation of count/replace functionality with backreference support, advanced matching controls (once/more/stop), and optimized performance with intelligent caching.
+**Latest Features**: Full implementation of count/replace functionality with backreference support, advanced matching controls (once/more/stop), optimized performance with intelligent caching, real-time output buffering for interactive commands, and embedded configuration files for portable deployment.
 
 ## Features
 
 - 🚀 **High Performance**: Written in Rust with optimized regex-based colorization
 - 🎨 **Rich Colorization**: Supports ANSI colors, styles, and attributes with count/replace functionality
-- 🔧 **Flexible Configuration**: Compatible with grc/grcat configuration files
+- 🔧 **Flexible Configuration**: Compatible with grc/grcat configuration files; supports embedded configurations for portable deployment
 - 🐚 **Shell Integration**: Generates aliases for popular commands
 - 📖 **Comprehensive**: Supports 80+ pre-configured commands
 - ⚡ **Advanced Matching**: Regex-based rules with intelligent caching, pattern optimization, and advanced count/replace controls
@@ -137,11 +137,18 @@ rgrc --color=on ls -la
 # Disable colors
 rgrc --color=off ps aux
 
+# Real-time output for interactive commands
+rgrc ping -c 4 google.com  # Shows ping responses immediately
+
 # Generate aliases for specific commands
 rgrc --aliases | grep -E "(ping|ls|ps|docker)"
 
 # Exclude certain commands from aliases
 rgrc --all-aliases --except=docker,kubectl
+
+# Configuration modes:
+# Default (embedded + file system): Uses embedded configs first, falls back to file system
+rgrc ls -la  # Uses embedded configs with file system fallback
 ```
 
 ### Shell Integration
@@ -216,12 +223,11 @@ colours=blue,underline
 
 ## Performance
 
-- **Optimized Processing**: High-performance single-threaded colorization with intelligent caching and match result reuse
+- **Real-time Output**: Line-buffered writer ensures immediate output for interactive commands like `ping`, `tail`, and `watch`
 - **Zero-copy Operations**: Efficient memory usage with minimal allocations and streaming I/O
 - **Regex Optimization**: Uses fancy-regex with advanced pattern matching, backtracking control, and result caching
 - **ANSI Optimization**: Merges adjacent styles using run-length encoding to reduce escape sequences
 - **Count/Replace Support**: Advanced matching control with text substitution capabilities and line reprocessing
-- **Parallel Processing**: Optional multi-threaded processing for large inputs with automatic fallback
 
 ## Development
 
@@ -235,11 +241,23 @@ cd rgrc
 # Build debug version
 cargo build
 
-# Build release version
+# Build release version (with embedded configs - default)
 cargo build --release
 
-# Run tests
+# Build with embedded configurations (explicit)
+cargo build --release --features embed-configs
+
+# Build without embedded configurations (file system only)
+cargo build --release -no-default-features
+
+# Run all tests (126+ tests across multiple modules)
 cargo test
+
+# Run specific test modules
+cargo test --lib     # Library tests (args, buffer, utils, etc.)
+cargo test --bin rgrc # Binary tests
+cargo test --test colorizer_tests  # Colorizer tests
+cargo test --test grc_tests        # Configuration tests
 
 # Generate documentation
 cargo doc --open
@@ -252,13 +270,20 @@ rgrc/
 ├── src/
 │   ├── main.rs      # CLI entry point
 │   ├── lib.rs       # Core library
+│   ├── args.rs      # Command-line argument parsing
+│   ├── buffer.rs    # Buffered writers for real-time output
+│   ├── colorizer.rs # Colorization engine
 │   ├── grc.rs       # Configuration parsing
-│   └── colorizer.rs # Colorization engine
+│   └── utils.rs     # Utility functions
+├── tests/
+│   ├── lib_tests.rs     # Library unit tests
+│   ├── colorizer_tests.rs # Colorizer functionality tests
+│   └── grc_tests.rs     # Configuration parsing tests
 ├── doc/
 │   └── rgrc.1.md    # Manual page (markdown)
 ├── share/           # Pre-configured rules
 ├── etc/             # Shell completions
-└── tests/           # Test files
+└── target/          # Build artifacts
 ```
 
 ### Contributing
@@ -266,8 +291,12 @@ rgrc/
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature-name`
 3. Make your changes and add tests
-4. Run tests: `cargo test`
-5. Submit a pull request
+4. Run tests: `cargo test` (runs all 126+ tests)
+5. Run specific test suites:
+   - `cargo test --lib` - Core library tests
+   - `cargo test --test colorizer_tests` - Colorizer tests
+   - `cargo test --test grc_tests` - Configuration tests
+6. Submit a pull request
 
 ## Compatibility
 

@@ -46,22 +46,34 @@ mod tests {
         writer.write_all(b"hello").unwrap();
         // Data should be written to buffer immediately
         let data = writer.inner.get_ref();
-        assert_eq!(data, b"hello", "Buffer should contain written data immediately");
+        assert_eq!(
+            data, b"hello",
+            "Buffer should contain written data immediately"
+        );
 
         // Test writing data with newline - should write and flush
         writer.write_all(b" world\n").unwrap();
         let data = writer.inner.get_ref();
-        assert_eq!(data, b"hello world\n", "Buffer should contain all written data");
+        assert_eq!(
+            data, b"hello world\n",
+            "Buffer should contain all written data"
+        );
 
         // Test writing more data without newline
         writer.write_all(b"more data").unwrap();
         let data = writer.inner.get_ref();
-        assert_eq!(data, b"hello world\nmore data", "Buffer should contain all written data");
+        assert_eq!(
+            data, b"hello world\nmore data",
+            "Buffer should contain all written data"
+        );
 
         // Test explicit flush (should be no-op since data is already written)
         writer.flush().unwrap();
         let data = writer.inner.get_ref();
-        assert_eq!(data, b"hello world\nmore data", "Buffer should remain unchanged after flush");
+        assert_eq!(
+            data, b"hello world\nmore data",
+            "Buffer should remain unchanged after flush"
+        );
     }
 
     #[test]
@@ -78,13 +90,19 @@ mod tests {
         // Test write with only newline
         writer.write_all(b"\n").unwrap();
         let data = writer.inner.get_ref();
-        assert_eq!(data, b"\n", "Write with only newline should flush immediately");
+        assert_eq!(
+            data, b"\n",
+            "Write with only newline should flush immediately"
+        );
 
         // Test multiple empty writes
         writer.write_all(b"").unwrap();
         writer.write_all(b"").unwrap();
         let data = writer.inner.get_ref();
-        assert_eq!(data, b"\n", "Multiple empty writes should not affect buffer");
+        assert_eq!(
+            data, b"\n",
+            "Multiple empty writes should not affect buffer"
+        );
     }
 
     #[test]
@@ -97,22 +115,34 @@ mod tests {
         let result1 = writer.write(b"hello ").unwrap();
         assert_eq!(result1, 6);
         let data = writer.inner.get_ref();
-        assert_eq!(data, b"hello ", "Partial write should be written immediately");
+        assert_eq!(
+            data, b"hello ",
+            "Partial write should be written immediately"
+        );
 
         let result2 = writer.write(b"world\n").unwrap();
         assert_eq!(result2, 6);
         let data = writer.inner.get_ref();
-        assert_eq!(data, b"hello world\n", "Write with newline should be written immediately");
+        assert_eq!(
+            data, b"hello world\n",
+            "Write with newline should be written immediately"
+        );
 
         // Test write method with data containing newlines
         let result3 = writer.write(b"test\nmore").unwrap();
         assert_eq!(result3, 9);
         let data = writer.inner.get_ref();
-        assert_eq!(data, b"hello world\ntest\nmore", "Write with newline should write all data immediately");
+        assert_eq!(
+            data, b"hello world\ntest\nmore",
+            "Write with newline should write all data immediately"
+        );
 
         writer.flush().unwrap();
         let data = writer.inner.get_ref();
-        assert_eq!(data, b"hello world\ntest\nmore", "Final flush should ensure all data is written");
+        assert_eq!(
+            data, b"hello world\ntest\nmore",
+            "Final flush should ensure all data is written"
+        );
     }
 
     #[test]

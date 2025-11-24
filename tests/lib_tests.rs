@@ -217,3 +217,116 @@ fn test_color_mode_clone_semantics() {
     // Both should be equal
     assert_eq!(mode1, mode2);
 }
+
+#[cfg(feature = "embed-configs")]
+mod embed_configs_tests {
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_embed_configs_filesystem_priority() {
+        // Test that filesystem configs take priority over embedded configs
+        // when embed-configs feature is enabled
+
+        // Create a temporary grc.conf file with a custom rule for "test_command"
+        let mut temp_grc = NamedTempFile::new().unwrap();
+        writeln!(temp_grc, r#"^test_command$"#).unwrap();
+        writeln!(temp_grc, "conf.custom_test").unwrap();
+
+        // Create a temporary conf.custom_test file with custom rules
+        let mut temp_conf = NamedTempFile::new().unwrap();
+        writeln!(temp_conf, "regexp=^custom_test_output$").unwrap();
+        writeln!(temp_conf, "colours=red").unwrap();
+        writeln!(temp_conf, "======").unwrap();
+
+        // Load config using the temporary grc.conf path
+        let rules = rgrc::load_config(temp_grc.path().to_str().unwrap(), "test_command");
+
+        // Should load rules from filesystem, not embedded configs
+        // Since our custom config file exists and has rules, we should get results
+        // (The exact content depends on whether the file is found in RESOURCE_PATHS)
+        // At minimum, the function should not panic and should attempt filesystem loading first
+        let _ = rules; // Just ensure it doesn't panic
+    }
+
+    #[test]
+    fn test_embed_configs_fallback_to_embedded() {
+        // Test that when filesystem config doesn't exist, it falls back to embedded configs
+        let rules = rgrc::load_config("/nonexistent/grc.conf", "ping");
+
+        // Should load from embedded configs since filesystem doesn't exist
+        // This should work because embedded configs include conf.ping
+        assert!(
+            !rules.is_empty(),
+            "Should fallback to embedded configs when filesystem config doesn't exist"
+        );
+    }
+
+    #[test]
+    fn test_embed_configs_grcat_filesystem_priority() {
+        // Test that load_grcat_config prioritizes filesystem over embedded configs
+
+        // Create a temporary config file with custom content
+        let mut temp_conf = NamedTempFile::new().unwrap();
+        writeln!(temp_conf, "regexp=^filesystem_test$").unwrap();
+        writeln!(temp_conf, "colours=blue").unwrap();
+        writeln!(temp_conf, "======").unwrap();
+
+        // Load the config file directly
+        let rules = rgrc::load_grcat_config(temp_conf.path().to_str().unwrap());
+
+        // Should load from filesystem first
+        assert!(
+            !rules.is_empty(),
+            "Should load rules from filesystem when file exists"
+        );
+
+        // Verify the rule content matches what we wrote
+        assert_eq!(rules.len(), 1, "Should have exactly one rule");
+        assert_eq!(
+            rules[0].regex.as_str(),
+            "^filesystem_test$",
+            "Regex should match filesystem content"
+        );
+    }
+
+    #[test]
+    fn test_embed_configs_grcat_fallback_to_embedded() {
+        // Test that load_grcat_config falls back to embedded configs when filesystem doesn't exist
+        let rules = rgrc::load_grcat_config("conf.ping");
+
+        // Should load from embedded configs since filesystem doesn't exist
+        assert!(
+            !rules.is_empty(),
+            "Should fallback to embedded configs for conf.ping"
+        );
+    }
+}
+
+#[cfg(not(feature = "embed-configs"))]
+mod no_embed_configs_tests {
+
+    #[test]
+    fn test_no_embed_configs_filesystem_only() {
+        // Test that without embed-configs, only filesystem configs are used
+        let rules = rgrc::load_config("/nonexistent/grc.conf", "ping");
+
+        // Should return empty since no embed-configs and filesystem doesn't exist
+        assert!(
+            rules.is_empty(),
+            "Should return empty when no embed-configs and filesystem config doesn't exist"
+        );
+    }
+
+    #[test]
+    fn test_no_embed_configs_grcat_filesystem_only() {
+        // Test that load_grcat_config only uses filesystem when embed-configs is disabled
+        let rules = rgrc::load_grcat_config("/nonexistent/conf.ping");
+
+        // Should return empty since no embed-configs and filesystem doesn't exist
+        assert!(
+            rules.is_empty(),
+            "Should return empty when no embed-configs and filesystem config doesn't exist"
+        );
+    }
+}

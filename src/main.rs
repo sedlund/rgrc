@@ -96,7 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Console supports colors, apply the strategy
         console::set_colors_enabled(true);
 
-        let should_attempt_colorization = match strategy {
+        match strategy {
             ColorizationStrategy::Always => {
                 should_use_colorization_for_command_supported(command_name)
             }
@@ -104,9 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ColorizationStrategy::Smart => {
                 should_use_colorization_for_command_benefit(command_name)
             }
-        };
-
-        should_attempt_colorization
+        }
     };
 
     let pseudo_command = args.command.join(" ");
