@@ -26,7 +26,6 @@ panic = "abort"
 lto = true
 codegen-units = 1
 strip = true
-opt-level = "z"
 
 [profile.bench]
 debug = 1
@@ -34,6 +33,3 @@ debug = 1
 [profile.minimal]
 inherits = "release"
 opt-level = "z"
-lto = true
-codegen-units = 1
-strip = true
