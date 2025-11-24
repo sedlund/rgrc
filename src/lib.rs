@@ -23,8 +23,11 @@
 //! let rules = load_config("~/.config/rgrc/grc.conf", "ping");
 //! ```
 
+pub mod args;
+pub mod buffer;
 pub mod colorizer;
 pub mod grc;
+pub mod utils;
 
 use std::fs::File;
 use std::io::BufRead;
@@ -64,7 +67,10 @@ pub const EMBEDDED_CONFIGS: &[(&str, &str)] = &[
     ("conf.diff", embed_config!("conf.diff")),
     ("conf.dig", embed_config!("conf.dig")),
     ("conf.dnf", embed_config!("conf.dnf")),
-    ("conf.docker-machinels", embed_config!("conf.docker-machinels")),
+    (
+        "conf.docker-machinels",
+        embed_config!("conf.docker-machinels"),
+    ),
     ("conf.dockerimages", embed_config!("conf.dockerimages")),
     ("conf.dockerinfo", embed_config!("conf.dockerinfo")),
     ("conf.dockernetwork", embed_config!("conf.dockernetwork")),
@@ -118,8 +124,14 @@ pub const EMBEDDED_CONFIGS: &[(&str, &str)] = &[
     ("conf.proftpd", embed_config!("conf.proftpd")),
     ("conf.ps", embed_config!("conf.ps")),
     ("conf.pv", embed_config!("conf.pv")),
-    ("conf.semanageboolean", embed_config!("conf.semanageboolean")),
-    ("conf.semanagefcontext", embed_config!("conf.semanagefcontext")),
+    (
+        "conf.semanageboolean",
+        embed_config!("conf.semanageboolean"),
+    ),
+    (
+        "conf.semanagefcontext",
+        embed_config!("conf.semanagefcontext"),
+    ),
     ("conf.semanageuser", embed_config!("conf.semanageuser")),
     ("conf.sensors", embed_config!("conf.sensors")),
     ("conf.showmount", embed_config!("conf.showmount")),
@@ -144,9 +156,9 @@ pub const EMBEDDED_GRC_CONF: &str = include_str!("../etc/rgrc.conf");
 
 // Cached parsed configurations for performance - now truly persistent across calls
 lazy_static::lazy_static! {
-    static ref PARSED_EMBEDDED_CONFIGS: std::sync::RwLock<std::collections::HashMap<String, Vec<GrcatConfigEntry>>> = 
+    static ref PARSED_EMBEDDED_CONFIGS: std::sync::RwLock<std::collections::HashMap<String, Vec<GrcatConfigEntry>>> =
         std::sync::RwLock::new(std::collections::HashMap::new());
-    
+
     static ref PARSED_EMBEDDED_GRC: Vec<fancy_regex::Regex> = {
         PRECOMPILED_GRC_RULES.iter()
             .filter_map(|(regex_str, _)| fancy_regex::Regex::new(regex_str).ok())
@@ -362,7 +374,7 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
             .find(|(re, _config)| re.is_match(pseudo_command).unwrap_or(false))
             .map(|(_, config)| config)
     };
-    
+
     if let Some(config) = embedded_result {
         // Search all resource paths for the colorization file
         return RESOURCE_PATHS
@@ -372,7 +384,7 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
             .flat_map(load_grcat_config)
             .collect();
     }
-    
+
     // Fallback to file system
     File::open(path)
         .ok()
@@ -394,7 +406,8 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
                 .collect()
         })
         .unwrap_or_default()
-}/// Load colorization rules from a grcat.conf-style configuration file.
+}
+/// Load colorization rules from a grcat.conf-style configuration file.
 ///
 /// This function reads a grcat.conf file and parses all colorization rules contained
 /// within it. These rules define how specific text patterns should be colored in output.
@@ -461,13 +474,10 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
 /// when configuration files are missing or malformed.
 pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
     let filename_str = filename.as_ref();
-    
+
     // Extract config name from path (e.g., "conf.ping" from "/path/to/conf.ping")
-    let config_name = filename_str
-        .split('/')
-        .last()
-        .unwrap_or(filename_str);
-    
+    let config_name = filename_str.split('/').last().unwrap_or(filename_str);
+
     // First, try to find cached embedded config
     {
         let cache = PARSED_EMBEDDED_CONFIGS.read().unwrap();
@@ -475,20 +485,23 @@ pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
             return cached_entries.clone();
         }
     }
-    
+
     // Not in cache, try to find embedded config and parse it
-    if let Some((_, embedded_content)) = EMBEDDED_CONFIGS.iter().find(|(name, _)| *name == config_name) {
+    if let Some((_, embedded_content)) = EMBEDDED_CONFIGS
+        .iter()
+        .find(|(name, _)| *name == config_name)
+    {
         let bufreader = std::io::BufReader::new(embedded_content.as_bytes());
         let configreader = GrcatConfigReader::new(bufreader.lines());
         let entries: Vec<_> = configreader.collect();
-        
+
         // Cache the parsed result
         let mut cache = PARSED_EMBEDDED_CONFIGS.write().unwrap();
         cache.insert(config_name.to_string(), entries.clone());
-        
+
         return entries;
     }
-    
+
     // Fallback to file system
     File::open(filename.as_ref())
         .ok()
@@ -545,7 +558,7 @@ pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     if !embedded_rules.is_empty() {
         return embedded_rules;
     }
-    
+
     // Fallback to file system configuration paths
     CONFIG_PATHS
         .iter()
@@ -578,99 +591,114 @@ fn load_grcat_config_from_embedded(config_name: &str) -> Vec<GrcatConfigEntry> {
             return cached_entries.clone();
         }
     }
-    
+
     // Not in cache, find embedded config and parse it
-    if let Some((_, embedded_content)) = EMBEDDED_CONFIGS.iter().find(|(name, _)| *name == config_name) {
+    if let Some((_, embedded_content)) = EMBEDDED_CONFIGS
+        .iter()
+        .find(|(name, _)| *name == config_name)
+    {
         let bufreader = std::io::BufReader::new(embedded_content.as_bytes());
         let configreader = GrcatConfigReader::new(bufreader.lines());
         let entries: Vec<_> = configreader.collect();
-        
+
         // Cache the parsed result
         let mut cache = PARSED_EMBEDDED_CONFIGS.write().unwrap();
         cache.insert(config_name.to_string(), entries.clone());
-        
+
         return entries;
     }
-    
+
     Vec::new()
-}
-
-// Note: These tests are documentation-based since the main() function
-// cannot be directly tested. The actual behavior would need to be tested
-// through integration tests that run the binary.
-#[cfg(test)]
-#[test]
-fn test_load_rules_for_command() {
-    // Test loading rules for a known command that should have configuration
-    let rules = load_rules_for_command("ping");
-
-    // Since we have embedded rgrc.conf and conf.ping, we should get some rules
-    // The exact number may vary, but it should be non-empty for a common command
-    assert!(!rules.is_empty(), "Should load rules for ping command from embedded configs");
-
-    // Verify that the rules are valid GrcatConfigEntry structs
-    for rule in &rules {
-        assert!(
-            !rule.regex.as_str().is_empty(),
-            "Rule should have a regex pattern"
-        );
-        // Colors can be empty for some rules, but regex should always be present
-    }
-
-    // Test with a command that likely doesn't exist
-    let no_rules = load_rules_for_command("nonexistent_command_xyz");
-    // This should return empty, as no config should match
-    assert!(
-        no_rules.is_empty(),
-        "Nonexistent command should return no rules"
-    );
-    
-    // Performance test: measure time to load rules (skip in debug mode)
-    #[cfg(not(debug_assertions))]
-    {
-        use std::time::Instant;
-        let start = Instant::now();
-        for _ in 0..10 {
-            let _rules = load_rules_for_command("ping");
-        }
-        let duration = start.elapsed();
-        let avg_time = duration / 10;
-        
-        // Should be reasonably fast (< 50ms per call in release mode)
-        println!("Average time to load ping rules: {:?}", avg_time);
-        assert!(avg_time.as_millis() < 50, "Loading rules should be reasonably fast (< 50ms)");
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    // Note: These tests are documentation-based since the main() function
+    // cannot be directly tested. The actual behavior would need to be tested
+    // through integration tests that run the binary.
+    #[cfg(test)]
+    #[test]
+    fn test_load_rules_for_command() {
+        // Test loading rules for a known command that should have configuration
+        let rules = load_rules_for_command("ping");
+
+        // Since we have embedded rgrc.conf and conf.ping, we should get some rules
+        // The exact number may vary, but it should be non-empty for a common command
+        assert!(
+            !rules.is_empty(),
+            "Should load rules for ping command from embedded configs"
+        );
+
+        // Verify that the rules are valid GrcatConfigEntry structs
+        for rule in &rules {
+            assert!(
+                !rule.regex.as_str().is_empty(),
+                "Rule should have a regex pattern"
+            );
+            // Colors can be empty for some rules, but regex should always be present
+        }
+
+        // Test with a command that likely doesn't exist
+        let no_rules = load_rules_for_command("nonexistent_command_xyz");
+        // This should return empty, as no config should match
+        assert!(
+            no_rules.is_empty(),
+            "Nonexistent command should return no rules"
+        );
+
+        // Performance test: measure time to load rules (skip in debug mode)
+        #[cfg(not(debug_assertions))]
+        {
+            use std::time::Instant;
+            let start = Instant::now();
+            for _ in 0..10 {
+                let _rules = load_rules_for_command("ping");
+            }
+            let duration = start.elapsed();
+            let avg_time = duration / 10;
+
+            // Should be reasonably fast (< 50ms per call in release mode)
+            println!("Average time to load ping rules: {:?}", avg_time);
+            assert!(
+                avg_time.as_millis() < 50,
+                "Loading rules should be reasonably fast (< 50ms)"
+            );
+        }
+    }
+
     #[test]
     fn test_expand_tilde() {
         // Test with valid HOME environment variable
-        unsafe { std::env::set_var("HOME", "/home/testuser"); }
-        
+        unsafe {
+            std::env::set_var("HOME", "/home/testuser");
+        }
+
         // Normal tilde expansion
         assert_eq!(expand_tilde("~/Documents"), "/home/testuser/Documents");
         assert_eq!(expand_tilde("~/"), "/home/testuser/");
         assert_eq!(expand_tilde("~"), "~");
-        
+
         // No tilde should be unchanged
         assert_eq!(expand_tilde("/absolute/path"), "/absolute/path");
         assert_eq!(expand_tilde("relative/path"), "relative/path");
         assert_eq!(expand_tilde(""), "");
-        
+
         // Tilde not at start should be unchanged
         assert_eq!(expand_tilde("path~/to/file"), "path~/to/file");
         assert_eq!(expand_tilde("path~"), "path~");
-        
+
         // Test without HOME environment variable
-        unsafe { std::env::remove_var("HOME"); }
+        unsafe {
+            std::env::remove_var("HOME");
+        }
         assert_eq!(expand_tilde("~/Documents"), "~/Documents");
         assert_eq!(expand_tilde("/absolute/path"), "/absolute/path");
-        
+
         // Restore HOME for other tests
-        unsafe { std::env::set_var("HOME", "/home/testuser"); }
+        unsafe {
+            std::env::set_var("HOME", "/home/testuser");
+        }
     }
 }
