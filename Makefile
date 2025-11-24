@@ -14,16 +14,16 @@ ver:
 	@echo Version: ${APP_NAME} v${APP_VERSION}
 
 release: rgrc.1.gz
-	cargo build --release
+	cargo auditable build --release
 
 macos:
-	cargo build --release --target x86_64-apple-darwin
+	cargo auditable build --release --target x86_64-apple-darwin
 
 armv7:
-	cargo build --release --target armv7-unknown-linux-musleabihf
+	cargo auditable build --release --target armv7-unknown-linux-musleabihf
 
 linux:
-	cargo build --release --target x86_64-unknown-linux-musl
+	cargo auditable build --release --target x86_64-unknown-linux-musl
 
 bin: macos linux armv7
 	@echo Creating tarball...
@@ -39,9 +39,9 @@ bin: macos linux armv7
 	@tar cvfz "${TARBALL}/${APP_NAME}-${APP_VERSION}-armv7-unknown-linux-musleabihf.tar.gz" -C target/armv7-unknown-linux-musleabihf/release/ ${APP_NAME}
 
 data: rgrc.1.gz
-	@echo Creating data zip...
+	@echo Creating data tarball...
 	@mkdir -p ${TARBALL}
-	@zip -r "${TARBALL}/${APP_NAME}-data-${APP_VERSION}.zip" doc/*.gz etc/ share/
+	@tar cvfz "${TARBALL}/${APP_NAME}-data-${APP_VERSION}.tar.gz" doc/*.gz etc/ share/
 
 lint:
 	cargo clippy --all
@@ -52,16 +52,18 @@ test:
 fmt:
 	cargo fmt --all
 
+check: lint fmt
+	@echo "\033[33mcargo lint and fmt done\033[0m"
+
 man:
 # 	pandoc -f markdown -t man doc/rgrc.1.md -o doc/rgrc.1
 	script/md2man.sh doc/rgrc.1.md doc/rgrc.1
 
 install: release
-	install -D -m 0755 target/release/rgrc $(PREFIX)/bin/rgrc
-	install -D -m 0644 doc/rgrc.1.gz $(PREFIX)/share/man/man1/
-	install -D -m 0644 etc/rgrc.* $(PREFIX)/etc/
-	install -d $(PREFIX)/share/rgrc
-	install -D -m 0644 share/conf.* $(PREFIX)/share/rgrc/
+	install -Dm 0755 target/release/${APP_NAME} -t $(PREFIX)/bin/
+	install -Dm 0644 doc/${APP_NAME}.1.gz -t $(PREFIX)/share/man/man1/
+	install -Dm 0644 etc/${APP_NAME}.* -t $(PREFIX)/etc/
+	install -Dm 0644 share/conf.* -t $(PREFIX)/share/${APP_NAME}/
 
 uninstall:
 	rm -f $(PREFIX)/bin/rgrc
