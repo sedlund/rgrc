@@ -14,13 +14,13 @@
 - 内存缓存在单次运行的 CLI 工具中完全无效
 
 **解决方案 - 磁盘缓存系统**:
-1. **缓存位置**: `~/.local/share/rgrc/VERSION/`
+1. **缓存位置**: `~/.cache/rgrc/VERSION/`
    - 使用版本号确保缓存随版本更新失效
    - 跨平台兼容（通过 HOME 环境变量）
    
 2. **缓存结构**:
    ```
-   ~/.local/share/rgrc/0.2.3/
+   ~/.cache/rgrc/0.2.3/
    ├── rgrc.conf          # 主配置文件
    └── conf/              # 所有 grcat 配置文件
        ├── conf.ping
@@ -40,7 +40,7 @@ fn get_cache_dir() -> Option<std::path::PathBuf> {
     std::env::var("HOME")
         .ok()
         .map(std::path::PathBuf::from)
-        .map(|h| h.join(".local").join("share").join("rgrc").join(VERSION))
+        .map(|h| h.join(".cache").join("rgrc").join(VERSION))
 }
 
 fn ensure_cache_populated() -> Option<std::path::PathBuf> {

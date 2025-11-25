@@ -177,7 +177,7 @@ fn get_cache_dir() -> Option<std::path::PathBuf> {
     std::env::var("HOME")
         .ok()
         .map(std::path::PathBuf::from)
-        .map(|h| h.join(".local").join("share").join("rgrc").join(VERSION))
+        .map(|h| h.join(".cache").join("rgrc").join(VERSION))
 }
 
 // Ensure cache directory exists and populate it with embedded configs
