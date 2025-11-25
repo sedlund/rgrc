@@ -171,6 +171,46 @@ pub const EMBEDDED_GRC_CONF: &str = include_str!("../etc/rgrc.conf");
 #[cfg(not(feature = "embed-configs"))]
 pub const EMBEDDED_GRC_CONF: &str = "";
 
+/// Flush and rebuild the cache directory (embed-configs only)
+///
+/// This function removes the existing cache directory and rebuilds it with
+/// embedded configuration files. Returns the path to the rebuilt cache directory
+/// and the number of configuration files created.
+///
+/// # Returns
+///
+/// Returns `Some((cache_path, config_count))` on success, `None` on failure.
+#[cfg(feature = "embed-configs")]
+pub fn flush_and_rebuild_cache() -> Option<(std::path::PathBuf, usize)> {
+    // Get cache directory path
+    let cache_dir = get_cache_dir()?;
+
+    // Remove existing cache directory if it exists
+    if cache_dir.exists() {
+        std::fs::remove_dir_all(&cache_dir).ok()?;
+    }
+
+    // Rebuild cache
+    let new_cache_dir = ensure_cache_populated()?;
+
+    // Count the number of config files
+    let conf_dir = new_cache_dir.join("conf");
+    let config_count = if conf_dir.exists() {
+        std::fs::read_dir(&conf_dir)
+            .map(|entries| entries.count())
+            .unwrap_or(0)
+    } else {
+        0
+    };
+
+    Some((new_cache_dir, config_count))
+}
+
+#[cfg(not(feature = "embed-configs"))]
+pub fn flush_and_rebuild_cache() -> Option<(std::path::PathBuf, usize)> {
+    None
+}
+
 // Helper function to get cache directory path
 #[cfg(feature = "embed-configs")]
 fn get_cache_dir() -> Option<std::path::PathBuf> {

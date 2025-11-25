@@ -20,6 +20,7 @@ use crate::ColorMode;
 /// - `show_all_aliases`: Whether to print aliases for all known commands.
 /// - `except_aliases`: Comma-separated list of commands to exclude when
 ///   generating aliases.
+/// - `flush_cache`: Whether to flush and rebuild the cache directory (embed-configs only).
 ///
 /// # Example
 ///
@@ -39,6 +40,8 @@ pub struct Args {
     pub show_all_aliases: bool,
     /// Commands to exclude from alias generation
     pub except_aliases: Vec<String>,
+    /// Flush and rebuild cache directory (embed-configs only)
+    pub flush_cache: bool,
 }
 
 /// Parse command-line arguments
@@ -58,7 +61,15 @@ pub struct Args {
 /// ```
 pub fn parse_args() -> Result<Args, String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    parse_args_impl(args)
+}
 
+/// Internal implementation of argument parsing
+///
+/// This function contains the core argument parsing logic and can be used
+/// both by `parse_args()` (which gets args from environment) and by tests
+/// (which pass args directly).
+fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
     if args.is_empty() {
         print_help();
         std::process::exit(1);
@@ -69,6 +80,7 @@ pub fn parse_args() -> Result<Args, String> {
     let mut show_aliases = false;
     let mut show_all_aliases = false;
     let mut except_aliases = Vec::new();
+    let mut flush_cache = false;
 
     let mut i = 0;
     while i < args.len() {
@@ -112,6 +124,10 @@ pub fn parse_args() -> Result<Args, String> {
                     except_aliases.extend(args[i + 1].split(',').map(|s| s.trim().to_string()));
                     i += 2;
                 }
+                "--flush-cache" => {
+                            flush_cache = true;
+                            i += 1;
+                        }
                 "--help" | "-h" => {
                     print_help();
                     std::process::exit(0);
@@ -125,7 +141,7 @@ pub fn parse_args() -> Result<Args, String> {
         }
     }
 
-    if command.is_empty() && !show_aliases && !show_all_aliases {
+    if command.is_empty() && !show_aliases && !show_all_aliases && !flush_cache {
         return Err("No command specified".to_string());
     }
 
@@ -135,6 +151,7 @@ pub fn parse_args() -> Result<Args, String> {
         show_aliases,
         show_all_aliases,
         except_aliases,
+        flush_cache,
     })
 }
 
@@ -149,6 +166,8 @@ fn print_help() {
     println!("  --aliases         Output shell aliases for available binaries");
     println!("  --all-aliases     Output all shell aliases");
     println!("  --except CMD,..   Exclude commands from alias generation");
+    #[cfg(feature = "embed-configs")]
+    println!("  --flush-cache     Flush and rebuild cache directory (embed-configs only)");
     println!("  --help, -h        Show this help message");
     println!();
     println!("Examples:");
@@ -203,6 +222,13 @@ mod tests {
         let args = result.unwrap();
         assert_eq!(args.except_aliases, vec!["cmd1", "cmd2"]);
 
+        // Test --flush-cache flag
+        let result = parse_args_helper(vec!["--flush-cache"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert!(args.flush_cache);
+        assert!(args.command.is_empty());
+
         // Test mixed valid args
         let result = parse_args_helper(vec!["--color=auto", "--except", "badcmd", "ls", "-la"]);
         assert!(result.is_ok());
@@ -218,6 +244,7 @@ mod tests {
         assert!(result.is_ok());
         let args = result.unwrap();
         assert_eq!(args.command, vec!["--unknown-flag", "echo", "test"]);
+        assert!(!args.flush_cache); // default should be false
     }
 
     #[test]
@@ -245,92 +272,8 @@ mod tests {
 
     // Helper function to test parse_args without std::env::args dependency
     fn parse_args_helper(args: Vec<&str>) -> Result<Args, String> {
-        // Convert Vec<&str> to Vec<String> to match parse_args signature
+        // Convert Vec<&str> to Vec<String> to match parse_args_impl signature
         let args: Vec<String> = args.into_iter().map(|s| s.to_string()).collect();
-
-        // Create a temporary function that uses our args instead of std::env::args
-        fn parse_args_test(args: Vec<String>) -> Result<Args, String> {
-            if args.is_empty() {
-                print_help();
-                std::process::exit(1);
-            }
-
-            let mut color = ColorMode::Auto;
-            let mut command = Vec::new();
-            let mut show_aliases = false;
-            let mut show_all_aliases = false;
-            let mut except_aliases = Vec::new();
-
-            let mut i = 0;
-            while i < args.len() {
-                let arg = args[i].as_str();
-                if arg.starts_with("--color=") {
-                    // Handle --color=value format
-                    let value = &arg[8..]; // Skip "--color="
-                    color = match value {
-                        "on" => ColorMode::On,
-                        "off" => ColorMode::Off,
-                        "auto" => ColorMode::Auto,
-                        _ => return Err(format!("Invalid color mode: {}", value)),
-                    };
-                    i += 1;
-                } else {
-                    match arg {
-                        "--color" => {
-                            if i + 1 >= args.len() {
-                                return Err("Missing value for --color".to_string());
-                            }
-                            color = match args[i + 1].as_str() {
-                                "on" => ColorMode::On,
-                                "off" => ColorMode::Off,
-                                "auto" => ColorMode::Auto,
-                                _ => return Err(format!("Invalid color mode: {}", args[i + 1])),
-                            };
-                            i += 2;
-                        }
-                        "--aliases" => {
-                            show_aliases = true;
-                            i += 1;
-                        }
-                        "--all-aliases" => {
-                            show_all_aliases = true;
-                            i += 1;
-                        }
-                        "--except" => {
-                            if i + 1 >= args.len() {
-                                return Err("Missing value for --except".to_string());
-                            }
-                            // Split comma-separated values
-                            except_aliases
-                                .extend(args[i + 1].split(',').map(|s| s.trim().to_string()));
-                            i += 2;
-                        }
-                        "--help" | "-h" => {
-                            print_help();
-                            std::process::exit(0);
-                        }
-                        _ => {
-                            // Everything else is treated as command arguments
-                            command.extend_from_slice(&args[i..]);
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if command.is_empty() && !show_aliases && !show_all_aliases {
-                return Err("No command specified".to_string());
-            }
-
-            Ok(Args {
-                color,
-                command,
-                show_aliases,
-                show_all_aliases,
-                except_aliases,
-            })
-        }
-
-        parse_args_test(args)
+        parse_args_impl(args)
     }
 }
