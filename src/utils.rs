@@ -147,6 +147,20 @@ pub fn should_use_colorization_for_command_supported(command: &str) -> bool {
     SUPPORTED_COMMANDS.contains(&command)
 }
 
+/// Pseudo-commands (exact match) that should NOT be colorized for explicit checks
+/// (e.g. `rgrc ls` should not colorize but `rgrc ls -l` should).
+pub const PSEUDO_NO_COLOR: &[&str] = &[
+    "ls",
+];
+
+/// Check whether an exact pseudo_command should be excluded from colorization.
+pub fn pseudo_command_excluded(pseudo_command: &str) -> bool {
+    if pseudo_command.is_empty() {
+        return false;
+    }
+    PSEUDO_NO_COLOR.contains(&pseudo_command)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,5 +208,12 @@ mod tests {
             "unknown_command"
         ));
         assert!(!should_use_colorization_for_command_supported(""));
+    }
+
+    #[test]
+    fn test_pseudo_command_excluded() {
+        assert!(pseudo_command_excluded("ls"));
+        assert!(!pseudo_command_excluded("ls -l"));
+        assert!(!pseudo_command_excluded(""));
     }
 }

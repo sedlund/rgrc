@@ -137,6 +137,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pseudo_command = args.command.join(" ");
 
+    // If we previously decided colorization should be attempted, allow an explicit
+    // pseudo-command exclusion check here. This is done *before* loading rules so
+    // plain `rgrc ls` (pseudo_command == "ls") can be treated as no-color while
+    // `rgrc ls -l` will not match the exact exclusion and remains colorized.
+    let should_colorize = if should_colorize {
+        // exact match exclusions
+        if rgrc::utils::pseudo_command_excluded(&pseudo_command) {
+            false
+        } else {
+            true
+        }
+    } else {
+        false
+    };
+
     // Load colorization rules only if we determined we should attempt colorization
     // Instrumentation controlled by `--features timetrace` and RGRCTIME env var.
     #[cfg(feature = "timetrace")]
@@ -177,6 +192,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Spawn the command with appropriate stdout handling
     let mut cmd = Command::new(command_name);
     cmd.args(args.command.iter().skip(1));
+
+    // TODO: concurrent-load spawn - For faster startup
+    // spawn the child first and load rules concurrently when we intend to colorize.
 
     // Optimization: When colorization is not needed AND output goes directly to terminal,
     // let the child process output directly to stdout. This completely avoids any piping overhead.
