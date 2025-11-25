@@ -22,6 +22,7 @@ tempfile = "3.0"
 [features]
 default = ["embed-configs"]
 embed-configs = []
+timetrace = []
 
 [profile.release]
 panic = "abort"

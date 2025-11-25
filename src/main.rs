@@ -11,6 +11,8 @@ use rgrc::{
 
 use std::io::{self, IsTerminal, Write};
 use std::process::{Command, Stdio};
+#[cfg(feature = "timetrace")]
+use std::time::Instant;
 
 // Use mimalloc for faster memory allocation (reduces startup overhead)
 #[cfg(not(target_env = "msvc"))]
@@ -40,12 +42,6 @@ fn flush_and_rebuild_cache() {
             std::process::exit(1);
         }
     }
-}
-
-#[cfg(not(feature = "embed-configs"))]
-fn flush_and_rebuild_cache() {
-    eprintln!("Error: --flush-cache is only available when built with embed-configs feature");
-    std::process::exit(1);
 }
 
 /// Main entry point for the grc (generic colourizer) program.
@@ -142,8 +138,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pseudo_command = args.command.join(" ");
 
     // Load colorization rules only if we determined we should attempt colorization
+    // Instrumentation controlled by `--features timetrace` and RGRCTIME env var.
+    #[cfg(feature = "timetrace")]
+    let record_time = std::env::var_os("RGRCTIME").is_some();
+    #[cfg(feature = "timetrace")]
+    let t0 = if record_time {
+        Some(Instant::now())
+    } else {
+        None
+    };
+
     let rules: Vec<GrcatConfigEntry> = if should_colorize {
-        load_rules_for_command(&pseudo_command)
+        #[cfg(feature = "timetrace")]
+        {
+            let t_start = Instant::now();
+            let r = load_rules_for_command(&pseudo_command);
+            if record_time {
+                eprintln!(
+                    "[rgrc:time] load_rules_for_command: {:} in {:?}",
+                    &pseudo_command,
+                    t_start.elapsed()
+                );
+            }
+            r
+        }
+
+        #[cfg(not(feature = "timetrace"))]
+        {
+            load_rules_for_command(&pseudo_command)
+        }
     } else {
         Vec::new() // Skip expensive rule loading
     };
@@ -207,6 +230,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    #[cfg(feature = "timetrace")]
+    if record_time {
+        if let Some(start) = t0 {
+            eprintln!("[rgrc:time] spawn child: {:?}", start.elapsed());
+        }
+    }
+
     // Colorization is enabled, read from the piped stdout, apply colorization
     // rules line-by-line (or in parallel chunks), and write colored output to stdout.
     let mut stdout = child
@@ -225,11 +255,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a line-buffered writer that flushes after each line
     let mut line_buffered_writer = LineBufferedWriter::new(&mut buffered_writer);
 
-    colorize(
-        &mut buffered_stdout,
-        &mut line_buffered_writer,
-        rules.as_slice(),
-    )?;
+    // Measure colorize performance when requested (feature guarded)
+    #[cfg(feature = "timetrace")]
+    {
+        if record_time {
+            let t_before_colorize = Instant::now();
+            colorize(
+                &mut buffered_stdout,
+                &mut line_buffered_writer,
+                rules.as_slice(),
+            )?;
+            eprintln!("[rgrc:time] colorize: {:?}", t_before_colorize.elapsed());
+        } else {
+            colorize(
+                &mut buffered_stdout,
+                &mut line_buffered_writer,
+                rules.as_slice(),
+            )?;
+        }
+    }
+
+    #[cfg(not(feature = "timetrace"))]
+    {
+        // Normal path (no instrumentation): just colorize
+        colorize(
+            &mut buffered_stdout,
+            &mut line_buffered_writer,
+            rules.as_slice(),
+        )?;
+    }
 
     // Ensure all buffered output is written
     buffered_writer.flush()?;

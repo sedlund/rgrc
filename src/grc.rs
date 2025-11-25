@@ -31,18 +31,6 @@
 
 use std::io::{BufRead, Lines};
 
-#[cfg(debug_assertions)]
-macro_rules! debug_println {
-    ($($arg:tt)*) => {
-        println!($($arg)*);
-    };
-}
-
-#[cfg(not(debug_assertions))]
-macro_rules! debug_println {
-    ($($arg:tt)*) => {};
-}
-
 use fancy_regex::Regex;
 
 /// Parse a single space-separated style keyword and apply it to a Style.
@@ -866,8 +854,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                             }
                             Err(_exc) => {
                                 // Log error and skip this entry (regex is required)
-                                #[cfg(debug_assertions)]
-                                debug_println!("Failed regexp: {:?}", _exc);
+                                eprintln!("Failed regexp: {:?}", _exc);
                             }
                         }
                     }
@@ -883,8 +870,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                             "more" => Some(GrcatConfigEntryCount::More),
                             "stop" => Some(GrcatConfigEntryCount::Stop),
                             _ => {
-                                #[cfg(debug_assertions)]
-                                debug_println!("Unknown count value: {}", value);
+                                eprintln!("Unknown count value: {}", value);
                                 None
                             }
                         };
@@ -899,10 +885,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                             "true" | "1" | "yes" => Some(true),
                             "false" | "0" | "no" => Some(false),
                             _ => {
-                                debug_println!(
-                                    "Unknown skip value: {}, defaulting to false",
-                                    value
-                                );
+                                eprintln!("Unknown skip value: {}, defaulting to false", value);
                                 Some(false)
                             }
                         };

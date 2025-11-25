@@ -38,6 +38,8 @@
 //! - **Replace field support**: Text substitution functionality
 
 use std::io::{BufRead, BufReader, Read, Write};
+#[cfg(feature = "timetrace")]
+use std::time::Instant;
 
 use crate::grc::GrcatConfigEntry;
 
@@ -114,6 +116,18 @@ where
 {
     // Ensure colors are enabled for this colorization session
     console::set_colors_enabled(true);
+    #[cfg(feature = "timetrace")]
+    let record_time = std::env::var_os("RGRCTIME").is_some();
+
+    #[cfg(feature = "timetrace")]
+    let overall_start = if record_time {
+        Some(Instant::now())
+    } else {
+        None
+    };
+
+    #[cfg(feature = "timetrace")]
+    let mut lines_processed: usize = 0;
     // ═══════════════════════════════════════════════════════════════════════════════
     // PHASE 1: INPUT PROCESSING - Set up buffered reading and line iteration
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -142,6 +156,10 @@ where
     for line in reader {
         // Extract line content, propagating any I/O errors
         let mut line = line?;
+        #[cfg(feature = "timetrace")]
+        if record_time {
+            lines_processed += 1;
+        }
 
         // ═══════════════════════════════════════════════════════════════════════════════
         // FAST PATH: Empty lines - preserve as single newline without processing
@@ -360,6 +378,17 @@ where
 
         // Always terminate line with newline (matches input format)
         writeln!(writer)?;
+    }
+
+    #[cfg(feature = "timetrace")]
+    if record_time {
+        if let Some(s) = overall_start {
+            eprintln!(
+                "[rgrc:time] colorizer total processed {} lines in {:?}",
+                lines_processed,
+                s.elapsed()
+            );
+        }
     }
 
     Ok(())
