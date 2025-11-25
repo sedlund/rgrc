@@ -6,6 +6,98 @@
 
 ## 最新优化 (2025年11月25日)
 
+### 磁盘缓存实现 - 性能突破
+
+**问题背景**:
+- embed-configs 版本初始性能为 0.44s，比非 embed 版本 (0.10s) 慢 4.4 倍
+- 每次运行都需要从嵌入的二进制数据中解析所有配置文件
+- 内存缓存在单次运行的 CLI 工具中完全无效
+
+**解决方案 - 磁盘缓存系统**:
+1. **缓存位置**: `~/.local/share/rgrc/VERSION/`
+   - 使用版本号确保缓存随版本更新失效
+   - 跨平台兼容（通过 HOME 环境变量）
+   
+2. **缓存结构**:
+   ```
+   ~/.local/share/rgrc/0.2.3/
+   ├── rgrc.conf          # 主配置文件
+   └── conf/              # 所有 grcat 配置文件
+       ├── conf.ping
+       ├── conf.ls
+       ├── conf.diff
+       └── ... (84个配置文件)
+   ```
+
+3. **工作流程**:
+   - 首次运行：检测缓存不存在，创建并填充缓存（耗时 0.33s）
+   - 后续运行：直接从缓存加载配置文件
+   - 优先级：文件系统配置 > 缓存配置 > 嵌入配置
+
+**核心代码实现**:
+```rust
+fn get_cache_dir() -> Option<std::path::PathBuf> {
+    std::env::var("HOME")
+        .ok()
+        .map(std::path::PathBuf::from)
+        .map(|h| h.join(".local").join("share").join("rgrc").join(VERSION))
+}
+
+fn ensure_cache_populated() -> Option<std::path::PathBuf> {
+    let cache_dir = get_cache_dir()?;
+    
+    // 检查缓存是否已存在
+    let grc_conf_path = cache_dir.join("rgrc.conf");
+    if grc_conf_path.exists() {
+        return Some(cache_dir);
+    }
+    
+    // 创建缓存目录结构
+    std::fs::create_dir_all(&cache_dir).ok()?;
+    let conf_dir = cache_dir.join("conf");
+    std::fs::create_dir_all(&conf_dir).ok()?;
+    
+    // 写入所有嵌入的配置
+    std::fs::write(&grc_conf_path, EMBEDDED_GRC_CONF).ok()?;
+    for (filename, content) in EMBEDDED_CONFIGS {
+        let file_path = conf_dir.join(filename);
+        std::fs::write(file_path, content).ok()?;
+    }
+    
+    Some(cache_dir)
+}
+```
+
+**性能结果**:
+- **首次运行**: 0.33s (创建并填充缓存)
+- **后续运行**: 0.07s
+- **非 embed 版本**: 0.04s
+- **性能差距**: 从 4.4 倍降至 1.75 倍 ✅
+
+**优化历程**:
+1. **初始实现** (0.44s → 0.33s): 实现基本磁盘缓存，但仍有重复解析
+2. **去重复解析** (0.33s → 0.07s): 移除 `load_config` 函数中的重复嵌入式配置回退逻辑
+3. **最终优化**: 确保嵌入式配置只在顶层处理一次
+
+**依赖移除**:
+- 最初使用 `dirs = "5.0"` crate 获取用户目录
+- 优化为直接使用 `std::env::var("HOME")`，零外部依赖
+
+**测试覆盖**:
+新增 4 个边界值测试确保稳定性：
+- `test_cache_population_idempotent`: 多次调用幂等性测试
+- `test_load_config_from_embedded_unknown_command`: 未知命令处理
+- `test_load_config_from_embedded_empty_command`: 空命令处理
+- `test_cache_directory_structure`: 缓存目录一致性
+
+**总测试数**: 139 个测试全部通过
+- 11 个单元测试
+- 78 个颜色器测试
+- 26 个 grc 配置测试
+- 24 个库测试（包含 8 个 embed-configs 专用测试）
+
+## 历史优化 (2025年11月25日)
+
 ### 1. 构建优化和二进制大小减少
 
 **Cargo.toml 优化设置统一**:

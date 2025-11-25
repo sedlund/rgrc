@@ -252,7 +252,7 @@ mod embed_configs_tests {
     #[test]
     fn test_embed_configs_fallback_to_embedded() {
         // Test that when filesystem config doesn't exist, it falls back to embedded configs
-        let rules = rgrc::load_config("/nonexistent/grc.conf", "ping");
+        let rules = rgrc::load_rules_for_command("ping");
 
         // Should load from embedded configs since filesystem doesn't exist
         // This should work because embedded configs include conf.ping
@@ -300,6 +300,62 @@ mod embed_configs_tests {
             !rules.is_empty(),
             "Should fallback to embedded configs for conf.ping"
         );
+    }
+
+    #[test]
+    fn test_cache_population_idempotent() {
+        // Test that calling load_rules_for_command multiple times with the same command
+        // is safe and consistent
+
+        // First call should work
+        let rules1 = rgrc::load_rules_for_command("ping");
+        assert!(!rules1.is_empty(), "First call should load rules for ping");
+
+        // Second call should return the same results
+        let rules2 = rgrc::load_rules_for_command("ping");
+        assert!(!rules2.is_empty(), "Second call should also load rules for ping");
+
+        // Results should be identical
+        assert_eq!(rules1.len(), rules2.len(), "Rule counts should be identical");
+        for (rule1, rule2) in rules1.iter().zip(rules2.iter()) {
+            assert_eq!(rule1.regex.as_str(), rule2.regex.as_str(), "Regex patterns should be identical");
+        }
+    }
+
+    #[test]
+    fn test_load_config_from_embedded_unknown_command() {
+        // Test loading rules for a command that doesn't exist in embedded configs
+        let rules = rgrc::load_rules_for_command("definitely_not_a_real_command_12345");
+
+        // Should return empty rules, not panic
+        assert!(
+            rules.is_empty(),
+            "Should return empty rules for unknown commands"
+        );
+    }
+
+    #[test]
+    fn test_load_config_from_embedded_empty_command() {
+        // Test loading rules for an empty command string
+        let rules = rgrc::load_rules_for_command("");
+
+        // Should return empty rules, not panic
+        assert!(
+            rules.is_empty(),
+            "Should return empty rules for empty command"
+        );
+    }
+
+    #[test]
+    fn test_cache_directory_structure() {
+        // Test that cache directory has the expected structure after loading rules
+        // This indirectly tests that cache creation works properly
+        let _rules = rgrc::load_rules_for_command("ping"); // This should trigger cache creation
+
+        // We can't directly check the cache directory since it's private,
+        // but we can verify that subsequent calls work consistently
+        let rules2 = rgrc::load_rules_for_command("ping");
+        assert!(!rules2.is_empty(), "Cache should be functional after creation");
     }
 }
 
