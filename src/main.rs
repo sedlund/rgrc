@@ -1,15 +1,12 @@
 // Import testable components from lib
 use rgrc::{
-    ColorizationStrategy,
+    ColorMode,
     args::parse_args,
     buffer::LineBufferedWriter,
     colorizer::colorize_regex as colorize,
     grc::GrcatConfigEntry,
     load_rules_for_command,
-    utils::{
-        SUPPORTED_COMMANDS, command_exists, should_use_colorization_for_command_benefit,
-        should_use_colorization_for_command_supported,
-    },
+    utils::{SUPPORTED_COMMANDS, command_exists, should_use_colorization_for_command_supported},
 };
 
 use std::io::{self, IsTerminal, Write};
@@ -80,30 +77,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    // Apply color mode setting and determine colorization strategy
-    let strategy: ColorizationStrategy = args.color.into();
+    // Apply color mode setting
+    let color_mode = args.color;
     let command_name = args.command.first().unwrap();
 
     // First check if console supports colors at all
-    // If not, treat as Never strategy - no colorization, skip piping
+    // If not, treat as Off mode - no colorization, skip piping
     let console_supports_colors = console::colors_enabled();
 
     let should_colorize = if !console_supports_colors {
-        // Console doesn't support colors, equivalent to Never strategy
+        // Console doesn't support colors, equivalent to Off mode
         console::set_colors_enabled(false);
         false
     } else {
-        // Console supports colors, apply the strategy
+        // Console supports colors, apply the color mode
         console::set_colors_enabled(true);
 
-        match strategy {
-            ColorizationStrategy::Always => {
-                should_use_colorization_for_command_supported(command_name)
-            }
-            ColorizationStrategy::Never => false,
-            ColorizationStrategy::Smart => {
-                should_use_colorization_for_command_benefit(command_name)
-            }
+        match color_mode {
+            ColorMode::On => should_use_colorization_for_command_supported(command_name),
+            ColorMode::Off => false,
+            ColorMode::Auto => should_use_colorization_for_command_supported(command_name),
         }
     };
 

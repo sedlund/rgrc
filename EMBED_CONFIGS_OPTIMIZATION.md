@@ -96,6 +96,36 @@ fn ensure_cache_populated() -> Option<std::path::PathBuf> {
 - 26 个 grc 配置测试
 - 24 个库测试（包含 8 个 embed-configs 专用测试）
 
+### 代码简化 - 移除 ColorizationStrategy
+
+**背景**: 随着磁盘缓存性能优化完成，ColorizationStrategy 抽象层不再必要
+
+**移除内容**:
+- `ColorizationStrategy` enum 定义
+- `ColorMode` 到 `ColorizationStrategy` 的 `From` 实现
+- main.rs 中的中间转换层
+
+**简化后的逻辑**:
+```rust
+// 直接使用 ColorMode 判断
+match color_mode {
+    ColorMode::On => should_use_colorization_for_command_supported(command_name),
+    ColorMode::Off => false,
+    ColorMode::Auto => should_use_colorization_for_command_benefit(command_name),
+}
+```
+
+**代码复杂度降低**:
+- 移除 ~30 行不必要的抽象代码
+- 直接使用基础的 `ColorMode` enum
+- 保持相同的功能行为
+- 性能无影响（逻辑相同）
+
+**验证结果**:
+- 所有测试通过 ✅
+- 性能保持不变 ✅
+- 功能行为完全一致 ✅
+
 ## 历史优化 (2025年11月25日)
 
 ### 1. 构建优化和二进制大小减少

@@ -313,12 +313,23 @@ mod embed_configs_tests {
 
         // Second call should return the same results
         let rules2 = rgrc::load_rules_for_command("ping");
-        assert!(!rules2.is_empty(), "Second call should also load rules for ping");
+        assert!(
+            !rules2.is_empty(),
+            "Second call should also load rules for ping"
+        );
 
         // Results should be identical
-        assert_eq!(rules1.len(), rules2.len(), "Rule counts should be identical");
+        assert_eq!(
+            rules1.len(),
+            rules2.len(),
+            "Rule counts should be identical"
+        );
         for (rule1, rule2) in rules1.iter().zip(rules2.iter()) {
-            assert_eq!(rule1.regex.as_str(), rule2.regex.as_str(), "Regex patterns should be identical");
+            assert_eq!(
+                rule1.regex.as_str(),
+                rule2.regex.as_str(),
+                "Regex patterns should be identical"
+            );
         }
     }
 
@@ -355,7 +366,10 @@ mod embed_configs_tests {
         // We can't directly check the cache directory since it's private,
         // but we can verify that subsequent calls work consistently
         let rules2 = rgrc::load_rules_for_command("ping");
-        assert!(!rules2.is_empty(), "Cache should be functional after creation");
+        assert!(
+            !rules2.is_empty(),
+            "Cache should be functional after creation"
+        );
     }
 }
 

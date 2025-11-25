@@ -65,36 +65,6 @@ pub fn print_help() {
     println!("  rgrc --aliases");
 }
 
-/// Quick check if a command is likely to benefit from colorization (used for Smart strategy)
-/// This is a lightweight check that doesn't require loading rules
-/// Heuristic: does `command` likely benefit from colorization?
-///
-/// This lightweight function returns `true` for commands that historically
-/// produce output that benefits from color highlighting (e.g., `ls`, `ping`,
-/// `df`). It is intentionally conservative and inexpensive to compute.
-///
-/// # Examples
-///
-/// ```ignore
-/// assert!(rgrc::utils::should_use_colorization_for_command_benefit("ls"));
-/// assert!(!rgrc::utils::should_use_colorization_for_command_benefit("echo"));
-/// ```
-pub fn should_use_colorization_for_command_benefit(command: &str) -> bool {
-    // Commands that definitely benefit from colorization (have meaningful output to colorize)
-    match command {
-        "ant" | "blkid" | "curl" | "cvs" | "df" | "diff" | "dig" | "dnf" | "docker" | "du"
-        | "env" | "esperanto" | "fdisk" | "findmnt" | "free" | "gcc" | "getfacl" | "getsebool"
-        | "id" | "ifconfig" | "ip" | "iptables" | "irclog" | "iwconfig" | "jobs" | "kubectl"
-        | "tail" | "last" | "ldap" | "log" | "lolcat" | "lsattr" | "lsblk" | "lsmod" | "lsof"
-        | "lspci" | "lsusb" | "mount" | "mvn" | "netstat" | "nmap" | "ntpdate" | "php" | "ping"
-        | "ping2" | "proftpd" | "ps" | "pv" | "semanage" | "sensors" | "showmount" | "sockstat"
-        | "sql" | "ss" | "stat" | "sysctl" | "systemctl" | "tcpdump" | "traceroute" | "tune2fs"
-        | "ulimit" | "vmstat" | "wdiff" | "whois" | "yaml" | "go" | "iostat" | "ls" => true,
-        // For other commands, assume they don't benefit from colorization
-        _ => false,
-    }
-}
-
 /// Curated list of commands known to work well with grc
 /// These commands have colorization rules that provide meaningful visual improvements
 /// Curated list of commands that ship with colorization rules.
@@ -233,20 +203,6 @@ mod tests {
             !command_exists("command with spaces"),
             "commands with spaces should not exist"
         );
-    }
-
-    #[test]
-    fn test_should_use_colorization_for_command_benefit() {
-        // Test commands that benefit from colorization
-        assert!(should_use_colorization_for_command_benefit("ping"));
-        assert!(should_use_colorization_for_command_benefit("ls"));
-        assert!(should_use_colorization_for_command_benefit("df"));
-
-        // Test commands that don't benefit from colorization
-        assert!(!should_use_colorization_for_command_benefit(
-            "unknown_command"
-        ));
-        assert!(!should_use_colorization_for_command_benefit(""));
     }
 
     #[test]
