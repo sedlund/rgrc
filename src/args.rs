@@ -42,6 +42,8 @@ pub struct Args {
     pub except_aliases: Vec<String>,
     /// Flush and rebuild cache directory (embed-configs only)
     pub flush_cache: bool,
+    /// Print the CLI version and exit
+    pub show_version: bool,
 }
 
 /// Parse command-line arguments
@@ -81,6 +83,7 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
     let mut show_all_aliases = false;
     let mut except_aliases = Vec::new();
     let mut flush_cache = false;
+    let mut show_version = false;
 
     let mut i = 0;
     while i < args.len() {
@@ -128,6 +131,10 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
                     flush_cache = true;
                     i += 1;
                 }
+                "--version" | "-v" => {
+                    show_version = true;
+                    i += 1;
+                }
                 "--help" | "-h" => {
                     print_help();
                     std::process::exit(0);
@@ -141,7 +148,12 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
         }
     }
 
-    if command.is_empty() && !show_aliases && !show_all_aliases && !flush_cache {
+    if command.is_empty()
+        && !show_aliases
+        && !show_all_aliases
+        && !flush_cache
+        && !show_version
+    {
         return Err("No command specified".to_string());
     }
 
@@ -152,6 +164,7 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
         show_all_aliases,
         except_aliases,
         flush_cache,
+        show_version,
     })
 }
 
@@ -169,6 +182,7 @@ fn print_help() {
     #[cfg(feature = "embed-configs")]
     println!("  --flush-cache     Flush and rebuild cache directory (embed-configs only)");
     println!("  --help, -h        Show this help message");
+    println!("  --version, -v     Show installed rgrc version and exit");
     println!();
     println!("Examples:");
     println!("  rgrc ping -c 4 google.com");
@@ -245,6 +259,16 @@ mod tests {
         let args = result.unwrap();
         assert_eq!(args.command, vec!["--unknown-flag", "echo", "test"]);
         assert!(!args.flush_cache); // default should be false
+        // Test --version and -v
+        let result = parse_args_helper(vec!["--version"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert!(args.show_version);
+
+        let result = parse_args_helper(vec!["-v"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert!(args.show_version);
     }
 
     #[test]

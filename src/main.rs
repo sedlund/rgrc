@@ -73,6 +73,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    // Handle --version flag first: print version and exit
+    if args.show_version {
+        println!("rgrc {}", env!("CARGO_PKG_VERSION"));
+        std::process::exit(0);
+    }
+
     // Handle --aliases and --all-aliases flags: generate shell aliases for commands.
     if args.show_aliases || args.show_all_aliases {
         let grc = std::env::current_exe().unwrap();
