@@ -162,33 +162,35 @@ mod tests {
 
     #[test]
     fn test_command_exists() {
-        // Test existing commands
-        assert!(command_exists("echo"), "echo command should exist");
-        assert!(command_exists("ls"), "ls command should exist");
+        // The available system commands vary between platforms and CI images.
+        // Instead of asserting that a specific utility always exists, test that
+        // at least one commonly-present executable is found. This keeps the test
+        // robust on Linux, macOS, and Windows runners.
+
+        let candidates_unix = ["sh", "bash", "ls", "true", "false", "echo"];
+        let candidates_windows = ["cmd.exe", "powershell.exe", "where.exe"];
+
+        let found_on_unix = candidates_unix.iter().any(|c| command_exists(c));
+        let found_on_windows = candidates_windows.iter().any(|c| command_exists(c));
+
+        // We expect at least one of these platform-typical commands to be present
+        // on the current host running the tests.
+        assert!(found_on_unix || found_on_windows, "expected at least one standard command to be present on PATH (checked: sh,bash,ls,true,false,echo,cmd.exe,powershell.exe,where.exe)");
 
         // Test non-existing command
-        assert!(
-            !command_exists("nonexistent_command_xyz123"),
-            "nonexistent command should not exist"
-        );
+        assert!(!command_exists("nonexistent_command_xyz123"), "nonexistent command should not exist");
 
-        // Test with absolute path (if it exists)
-        assert!(
-            command_exists("/bin/echo") || command_exists("/usr/bin/echo"),
-            "echo should exist in standard locations"
-        );
+        // On Unix-like systems, many CI images provide /bin/echo or /usr/bin/echo.
+        // Make this an optional check only on Unix targets.
+        if cfg!(unix) {
+            assert!(command_exists("/bin/echo") || command_exists("/usr/bin/echo"), "echo should exist in standard locations on Unix hosts");
+        }
 
         // Test empty string
-        assert!(
-            !command_exists(""),
-            "empty string should not be a valid command"
-        );
+        assert!(!command_exists(""), "empty string should not be a valid command");
 
         // Test command with spaces (should not exist)
-        assert!(
-            !command_exists("command with spaces"),
-            "commands with spaces should not exist"
-        );
+        assert!(!command_exists("command with spaces"), "commands with spaces should not exist");
     }
 
     #[test]
