@@ -1,4 +1,4 @@
-# rgrc -- Rusty Generic Colouriser
+% rgrc(1)
 
 ## NAME
 

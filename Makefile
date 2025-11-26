@@ -59,8 +59,8 @@ check: lint fmt
 	@echo "\033[33mcargo lint and fmt done\033[0m"
 
 man:
-# 	pandoc -f markdown -t man doc/rgrc.1.md -o doc/rgrc.1
-	script/md2man.sh doc/rgrc.1.md doc/rgrc.1
+	pandoc --standalone -f markdown -t man doc/rgrc.1.md -o doc/rgrc.1
+# 	script/md2man.sh doc/rgrc.1.md doc/rgrc.1
 
 install: release
 	install -Dm 0755 target/release/${APP_NAME} -t $(PREFIX)/bin/
