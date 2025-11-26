@@ -124,11 +124,17 @@ jobs:
         with:
           name: rgrc-data-${{ env.VERSION }}
           path: target/tarball/rgrc-data-${{ env.VERSION }}.zip
+  deb:
+    name: Build .deb packages
+    uses: ./.github/workflows/deb.yml
+    secrets:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   publish:
     name: Publish release
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [release, data]
+    needs: [release, data, deb]
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v6
@@ -142,6 +148,7 @@ jobs:
           files: artifacts/**/*.zip
           generate_release_notes: true
           draft: true
+
   publish-crate:
     name: Publish to crates.io
     if: startsWith(github.ref, 'refs/tags/')
