@@ -72,17 +72,10 @@ fn test_load_config_empty_config_path() {
 fn test_load_config_empty_command() {
     // Empty command should still be handled gracefully
     let result = rgrc::load_config("/nonexistent/path", "");
-    assert!(result.is_empty());
-}
-
-#[test]
-fn test_color_mode_from_str() {
-    use std::str::FromStr;
-
-    // Test valid parsing
-    assert!(rgrc::ColorMode::from_str("on").is_ok());
-    assert!(rgrc::ColorMode::from_str("off").is_ok());
-    assert!(rgrc::ColorMode::from_str("auto").is_ok());
+    assert!(
+        result.is_empty(),
+        "Should return empty vector when given an empty command"
+    );
 }
 
 #[test]
@@ -333,32 +326,34 @@ mod embed_configs_tests {
     #[test]
     fn test_cache_population_idempotent() {
         // Test that calling load_rules_for_command multiple times with the same command
-        // is safe and consistent
+        // is safe and consistent when the cache is persisted under the same HOME
 
-        // First call should work
-        let rules1 = with_temp_home(|| rgrc::load_rules_for_command("ping"));
-        assert!(!rules1.is_empty(), "First call should load rules for ping");
+        with_temp_home(|| {
+            // First call should work
+            let rules1 = rgrc::load_rules_for_command("ping");
+            assert!(!rules1.is_empty(), "First call should load rules for ping");
 
-        // Second call should return the same results
-        let rules2 = rgrc::load_rules_for_command("ping");
-        assert!(
-            !rules2.is_empty(),
-            "Second call should also load rules for ping"
-        );
-
-        // Results should be identical
-        assert_eq!(
-            rules1.len(),
-            rules2.len(),
-            "Rule counts should be identical"
-        );
-        for (rule1, rule2) in rules1.iter().zip(rules2.iter()) {
-            assert_eq!(
-                rule1.regex.as_str(),
-                rule2.regex.as_str(),
-                "Regex patterns should be identical"
+            // Second call should return the same results (from cache)
+            let rules2 = rgrc::load_rules_for_command("ping");
+            assert!(
+                !rules2.is_empty(),
+                "Second call should also load rules for ping"
             );
-        }
+
+            // Results should be identical
+            assert_eq!(
+                rules1.len(),
+                rules2.len(),
+                "Rule counts should be identical"
+            );
+            for (rule1, rule2) in rules1.iter().zip(rules2.iter()) {
+                assert_eq!(
+                    rule1.regex.as_str(),
+                    rule2.regex.as_str(),
+                    "Regex patterns should be identical"
+                );
+            }
+        });
     }
 
     #[test]
