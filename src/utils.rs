@@ -127,7 +127,6 @@ pub const SUPPORTED_COMMANDS: &[&str] = &[
     "wdiff",
     "whois",
     "yaml",
-    "docker",
     "go",
     "iostat",
 ];
