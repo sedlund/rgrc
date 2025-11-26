@@ -561,16 +561,22 @@ mod lib_test {
             use tempfile::TempDir;
             let td = TempDir::new().expect("create tempdir");
             let prev_home = std::env::var_os("HOME");
-            unsafe { std::env::set_var("HOME", td.path()); }
+            unsafe {
+                std::env::set_var("HOME", td.path());
+            }
 
             // Re-run loading after setting HOME to the tempdir-backed cache
             let rules_after = load_rules_for_command("ping");
 
             // Restore HOME for subsequent tests
             if let Some(h) = prev_home {
-                unsafe { std::env::set_var("HOME", h); }
+                unsafe {
+                    std::env::set_var("HOME", h);
+                }
             } else {
-                unsafe { std::env::remove_var("HOME"); }
+                unsafe {
+                    std::env::remove_var("HOME");
+                }
             }
 
             assert!(

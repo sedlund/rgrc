@@ -143,11 +143,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // `rgrc ls -l` will not match the exact exclusion and remains colorized.
     let should_colorize = if should_colorize {
         // exact match exclusions
-        if rgrc::utils::pseudo_command_excluded(&pseudo_command) {
-            false
-        } else {
-            true
-        }
+        !rgrc::utils::pseudo_command_excluded(&pseudo_command)
     } else {
         false
     };

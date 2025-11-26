@@ -146,9 +146,7 @@ pub fn should_use_colorization_for_command_supported(command: &str) -> bool {
 
 /// Pseudo-commands (exact match) that should NOT be colorized for explicit checks
 /// (e.g. `rgrc ls` should not colorize but `rgrc ls -l` should).
-pub const PSEUDO_NO_COLOR: &[&str] = &[
-    "ls",
-];
+pub const PSEUDO_NO_COLOR: &[&str] = &["ls"];
 
 /// Check whether an exact pseudo_command should be excluded from colorization.
 pub fn pseudo_command_excluded(pseudo_command: &str) -> bool {
