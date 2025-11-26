@@ -89,5 +89,5 @@ jobs:
         with:
           name: rgrc-${{ env.VERSION }}-${{ matrix.target }}.deb
           path: |
-            target/*.deb
+            target/debian/*.deb
 

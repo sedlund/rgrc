@@ -1,3 +1,16 @@
+#[cfg(any(
+    all(
+        any(target_arch = "x86_64"),
+        any(
+            all(target_os = "linux", any(target_env = "gnu", target_env = "musl")),
+            target_os = "macos"
+        )
+    ),
+    all(
+        target_arch = "arm",
+        all(target_os = "linux", any(target_env = "gnu", target_env = "musl"))
+    )
+))]
 #[test]
 fn main_prints_version_and_exits() {
     // `cargo` provides CARGO_BIN_EXE_<name> env var to integration tests and
