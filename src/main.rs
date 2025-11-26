@@ -1,9 +1,48 @@
-use std::process::{Command, Stdio};
-
 // Import testable components from lib
 use rgrc::{
-    ColorMode, colorizer::colorize_regex as colorize, grc::GrcatConfigEntry, load_rules_for_command,
+    ColorMode,
+    args::parse_args,
+    buffer::LineBufferedWriter,
+    colorizer::colorize_regex as colorize,
+    grc::GrcatConfigEntry,
+    load_rules_for_command,
+    utils::{SUPPORTED_COMMANDS, command_exists, should_use_colorization_for_command_supported},
 };
+
+use std::io::{self, IsTerminal, Write};
+use std::process::{Command, Stdio};
+#[cfg(feature = "timetrace")]
+use std::time::Instant;
+
+// Use mimalloc for faster memory allocation (reduces startup overhead)
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+/// Flush and rebuild the cache directory (embed-configs only)
+///
+/// This function removes the existing cache directory and rebuilds it with
+/// embedded configuration files. It displays the progress and results.
+#[cfg(feature = "embed-configs")]
+fn flush_and_rebuild_cache() {
+    use rgrc::EMBEDDED_CONFIGS;
+
+    println!("Flushing and rebuilding cache directory...");
+
+    match rgrc::flush_and_rebuild_cache() {
+        Some((cache_dir, config_count)) => {
+            println!("Cache rebuild successful!");
+            println!("  Location: {}", cache_dir.display());
+            println!("  Main config: rgrc.conf");
+            println!("  Color configs: {} files in conf/", config_count);
+            println!("  Total embedded configs: {}", EMBEDDED_CONFIGS.len());
+        }
+        None => {
+            eprintln!("Error: Failed to rebuild cache directory");
+            std::process::exit(1);
+        }
+    }
+}
 
 /// Main entry point for the grc (generic colourizer) program.
 ///
@@ -20,194 +59,248 @@ use rgrc::{
 /// - Searches multiple standard paths for configuration files.
 ///
 /// Command-line options:
-/// - --colour on|off|auto: Override color output mode.
+/// - --color on|off|auto: Override color output mode.
 /// - --aliases: Print shell aliases for commonly colorized commands.
 /// - --all-aliases: Print shell aliases for all known commands.
 /// - --except CMD1,CMD2,...: Exclude commands from alias generation.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut command: Vec<String> = Vec::new();
-    let mut color = ColorMode::Auto;
-    let mut show_all_aliases = false;
-    let mut except_aliases: Vec<String> = Vec::new();
-    let mut show_aliases = false;
-
-    // Parse command-line arguments using the argparse crate.
-    {
-        let mut ap = argparse::ArgumentParser::new();
-        ap.set_description("Rusty Generic Colouriser");
-        ap.stop_on_first_argument(true);
-        ap.refer(&mut color).add_option(
-            &["--color"],
-            argparse::Store,
-            "Override color output (on, off, auto)",
-        );
-        ap.refer(&mut command).required().add_argument(
-            "command",
-            argparse::Collect,
-            "Command to run",
-        );
-        ap.refer(&mut show_aliases).add_option(
-            &["--aliases"],
-            argparse::StoreTrue,
-            "Output shell aliases for available binaries",
-        );
-        ap.refer(&mut show_all_aliases).add_option(
-            &["--all-aliases"],
-            argparse::StoreTrue,
-            "Output all shell aliases",
-        );
-        ap.refer(&mut except_aliases).add_option(
-            &["--except"],
-            argparse::Collect,
-            "Exclude alias from generated list (multiple or comma-separated allowed)",
-        );
-
-        // If no arguments provided, show help
-        if std::env::args().len() == 1 {
-            ap.print_help("rgrc", &mut std::io::stdout())?;
+    // Parse command-line arguments
+    let args = match parse_args() {
+        Ok(args) => args,
+        Err(e) => {
+            eprintln!("Error: {}", e);
             std::process::exit(1);
         }
-        ap.parse_args_or_exit();
-    }
+    };
 
     // Handle --aliases and --all-aliases flags: generate shell aliases for commands.
-    if show_aliases || show_all_aliases {
+    if args.show_aliases || args.show_all_aliases {
         let grc = std::env::current_exe().unwrap();
         let grc = grc.display();
 
         // Build a set of excluded aliases (split comma-separated entries).
         // This allows users to exclude specific commands from the generated alias list via --except flag.
-        let except_set: std::collections::HashSet<String> = except_aliases
+        let except_set: std::collections::HashSet<String> = args
+            .except_aliases
             .iter()
             .flat_map(|s| s.split(',').map(|p| p.trim().to_string()))
             .collect();
 
         // Curated list of commands known to work well with grc
-        for cmd in &[
-            "ant",
-            "blkid",
-            "common",
-            "curl",
-            "cvs",
-            "df",
-            "diff",
-            "dig",
-            "dnf",
-            "docker",
-            "du",
-            "dummy",
-            "env",
-            "esperanto",
-            "fdisk",
-            "findmnt",
-            "free",
-            "gcc",
-            "getfacl",
-            "getsebool",
-            "id",
-            "ifconfig",
-            "ip",
-            "iptables",
-            "irclog",
-            "iwconfig",
-            "jobs",
-            "kubectl",
-            "last",
-            "ldap",
-            "log",
-            "lolcat",
-            "lsattr",
-            "lsblk",
-            "lsmod",
-            "lsof",
-            "lspci",
-            "mount",
-            "mvn",
-            "netstat",
-            "nmap",
-            "ntpdate",
-            "php",
-            "ping",
-            "ping2",
-            "proftpd",
-            "ps",
-            "pv",
-            "semanage",
-            "sensors",
-            "showmount",
-            "sockstat",
-            "sql",
-            "ss",
-            "stat",
-            "sysctl",
-            "systemctl",
-            "tail",
-            "tcpdump",
-            "traceroute",
-            "tune2fs",
-            "ulimit",
-            "uptime",
-            "vmstat",
-            "wdiff",
-            "whois",
-            "yaml",
-            "docker",
-            "go",
-            "iostat",
-            "lsusb",
-        ] {
+        for cmd in SUPPORTED_COMMANDS {
             // Output a shell alias if:
             // 1. The command is not in the exclude list, AND
             // 2. Either we're generating all aliases (--all-aliases) OR the command exists in PATH (which::which)
-            if !except_set.contains(cmd as &str) && (show_all_aliases || which::which(cmd).is_ok())
-            {
+            if !except_set.contains(cmd as &str) && (args.show_all_aliases || command_exists(cmd)) {
                 // Print shell alias in the format: alias CMD='grc CMD';
-                println!("alias {}='{} {}';", cmd, grc, cmd);
+                println!("alias {}='{} {}'", cmd, grc, cmd);
             }
         }
         std::process::exit(0);
     }
 
-    if command.is_empty() {
+    // Handle --flush-cache flag: flush and rebuild cache directory
+    #[cfg(feature = "embed-configs")]
+    if args.flush_cache {
+        flush_and_rebuild_cache();
+        std::process::exit(0);
+    }
+
+    if args.command.is_empty() {
         eprintln!("No command specified.");
         std::process::exit(1);
     }
 
     // Apply color mode setting
-    match color {
-        ColorMode::On => console::set_colors_enabled(true),
-        ColorMode::Off => console::set_colors_enabled(false),
-        ColorMode::Auto => {} // Default behavior based on TTY detection
-    }
+    let color_mode = args.color;
+    let command_name = args.command.first().unwrap();
 
-    let pseudo_command = command.join(" ");
+    // First check if console supports colors at all
+    // If not, treat as Off mode - no colorization, skip piping
+    let console_supports_colors = console::colors_enabled();
 
-    // Load colorization rules: iterate through config paths, find matching command regex,
-    // then load the associated grcat configuration file (containing regex + color style rules).
-    // Rules from all matching configs are collected into a single vector for colorization.
-    let rules: Vec<GrcatConfigEntry> = load_rules_for_command(&pseudo_command);
+    let should_colorize = if !console_supports_colors {
+        // Console doesn't support colors, equivalent to Off mode
+        console::set_colors_enabled(false);
+        false
+    } else {
+        // Console supports colors, apply the color mode
+        console::set_colors_enabled(true);
+
+        match color_mode {
+            ColorMode::Off => false,
+            ColorMode::On | ColorMode::Auto => {
+                should_use_colorization_for_command_supported(command_name)
+            }
+        }
+    };
+
+    let pseudo_command = args.command.join(" ");
+
+    // If we previously decided colorization should be attempted, allow an explicit
+    // pseudo-command exclusion check here. This is done *before* loading rules so
+    // plain `rgrc ls` (pseudo_command == "ls") can be treated as no-color while
+    // `rgrc ls -l` will not match the exact exclusion and remains colorized.
+    let should_colorize = if should_colorize {
+        // exact match exclusions
+        !rgrc::utils::pseudo_command_excluded(&pseudo_command)
+    } else {
+        false
+    };
+
+    // Load colorization rules only if we determined we should attempt colorization
+    // Instrumentation controlled by `--features timetrace` and RGRCTIME env var.
+    #[cfg(feature = "timetrace")]
+    let record_time = std::env::var_os("RGRCTIME").is_some();
+    #[cfg(feature = "timetrace")]
+    let t0 = if record_time {
+        Some(Instant::now())
+    } else {
+        None
+    };
+
+    let rules: Vec<GrcatConfigEntry> = if should_colorize {
+        #[cfg(feature = "timetrace")]
+        {
+            let t_start = Instant::now();
+            let r = load_rules_for_command(&pseudo_command);
+            if record_time {
+                eprintln!(
+                    "[rgrc:time] load_rules_for_command: {:} in {:?}",
+                    &pseudo_command,
+                    t_start.elapsed()
+                );
+            }
+            r
+        }
+
+        #[cfg(not(feature = "timetrace"))]
+        {
+            load_rules_for_command(&pseudo_command)
+        }
+    } else {
+        Vec::new() // Skip expensive rule loading
+    };
+
+    // Final check: we need both the decision to colorize AND actual rules
+    let should_colorize = should_colorize && !rules.is_empty();
 
     // Spawn the command with appropriate stdout handling
-    let mut cmd = Command::new(command.first().unwrap().as_str());
-    cmd.args(command.iter().skip(1));
+    let mut cmd = Command::new(command_name);
+    cmd.args(args.command.iter().skip(1));
 
-    // If we have colorization rules, pipe the command's stdout so we can intercept and colorize it.
-    if !rules.is_empty() {
-        cmd.stdout(Stdio::piped());
+    // TODO: concurrent-load spawn - For faster startup
+    // spawn the child first and load rules concurrently when we intend to colorize.
+
+    // Optimization: When colorization is not needed AND output goes directly to terminal,
+    // let the child process output directly to stdout. This completely avoids any piping overhead.
+    // However, when output is piped (e.g., rgrc cmd | other_cmd), we must still use pipes
+    // to maintain data flow integrity.
+    let stdout_is_terminal = io::stdout().is_terminal();
+    if !should_colorize && stdout_is_terminal {
+        cmd.stdout(Stdio::inherit()); // Inherit parent's stdout directly
+        cmd.stderr(Stdio::inherit()); // Also inherit stderr for consistency
+
+        // Spawn and wait for the command
+        let mut child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(e) => {
+                // Friendly error for missing executable
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    eprintln!("Error: command not found: '{}'", command_name);
+                    std::process::exit(127);
+                } else {
+                    eprintln!("Failed to spawn '{}': {}", command_name, e);
+                    std::process::exit(1);
+                }
+            }
+        };
+
+        let ecode = match child.wait() {
+            Ok(status) => status,
+            Err(e) => {
+                eprintln!("Failed while waiting for '{}': {}", command_name, e);
+                std::process::exit(1);
+            }
+        };
+        std::process::exit(ecode.code().unwrap_or(1));
     }
+
+    // Only pipe stdout when colorization is actually needed
+    // This avoids unnecessary piping overhead when colors are disabled or not beneficial
+    cmd.stdout(Stdio::piped());
 
     // Spawn the command subprocess.
-    let mut child = cmd.spawn().expect("failed to spawn command");
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                eprintln!("Error: command not found: '{}'", command_name);
+                std::process::exit(127);
+            } else {
+                eprintln!("Failed to spawn '{}': {}", command_name, e);
+                std::process::exit(1);
+            }
+        }
+    };
 
-    // If colorization rules exist, read from the piped stdout, apply colorization
-    // rules line-by-line (or in parallel chunks), and write colored output to stdout.
-    if !rules.is_empty() {
-        let mut stdout = child
-            .stdout
-            .take()
-            .expect("child did not have a handle to stdout");
-        colorize(&mut stdout, &mut std::io::stdout(), rules.as_slice())?;
+    #[cfg(feature = "timetrace")]
+    if record_time {
+        if let Some(start) = t0 {
+            eprintln!("[rgrc:time] spawn child: {:?}", start.elapsed());
+        }
     }
+
+    // Colorization is enabled, read from the piped stdout, apply colorization
+    // rules line-by-line (or in parallel chunks), and write colored output to stdout.
+    let mut stdout = child
+        .stdout
+        .take()
+        .expect("child did not have a handle to stdout");
+
+    // Optimization: Use a larger buffer to reduce system call overhead
+    // This can significantly improve performance for commands with lots of output
+    let mut buffered_stdout = std::io::BufReader::with_capacity(64 * 1024, &mut stdout); // 64KB buffer
+
+    // For real-time output commands, use line buffering to ensure output appears immediately
+    // Use a smaller buffer (4KB) and flush after each line to prevent output delay
+    let mut buffered_writer = std::io::BufWriter::with_capacity(4 * 1024, std::io::stdout()); // 4KB buffer for line buffering
+
+    // Create a line-buffered writer that flushes after each line
+    let mut line_buffered_writer = LineBufferedWriter::new(&mut buffered_writer);
+
+    // Measure colorize performance when requested (feature guarded)
+    #[cfg(feature = "timetrace")]
+    {
+        if record_time {
+            let t_before_colorize = Instant::now();
+            colorize(
+                &mut buffered_stdout,
+                &mut line_buffered_writer,
+                rules.as_slice(),
+            )?;
+            eprintln!("[rgrc:time] colorize: {:?}", t_before_colorize.elapsed());
+        } else {
+            colorize(
+                &mut buffered_stdout,
+                &mut line_buffered_writer,
+                rules.as_slice(),
+            )?;
+        }
+    }
+
+    #[cfg(not(feature = "timetrace"))]
+    {
+        // Normal path (no instrumentation): just colorize
+        colorize(
+            &mut buffered_stdout,
+            &mut line_buffered_writer,
+            rules.as_slice(),
+        )?;
+    }
+
+    // Ensure all buffered output is written
+    buffered_writer.flush()?;
 
     // Wait for the spawned command to complete and propagate its exit code.
     let ecode = child.wait().expect("failed to wait on child");

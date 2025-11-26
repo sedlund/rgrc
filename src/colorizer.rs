@@ -38,6 +38,8 @@
 //! - **Replace field support**: Text substitution functionality
 
 use std::io::{BufRead, BufReader, Read, Write};
+#[cfg(feature = "timetrace")]
+use std::time::Instant;
 
 use crate::grc::GrcatConfigEntry;
 
@@ -78,20 +80,29 @@ use crate::grc::GrcatConfigEntry;
 ///
 /// This function is thread-safe as it doesn't use any shared mutable state.
 /// Multiple instances can run concurrently on different inputs.
-///
 /// # Examples
 ///
 /// ```ignore
 /// use std::io::Cursor;
+/// use fancy_regex::Regex;
+/// use console::Style;
 /// use rgrc::colorizer::colorize_regex;
+/// use rgrc::grc::GrcatConfigEntry;
 ///
-/// let input = "ERROR: Connection failed\nWARNING: Timeout\n";
+/// // Example: colorize lines beginning with "ERROR:" using a bold red style
+/// let input = "ERROR: Connection failed\nINFO: OK\n";
 /// let mut reader = Cursor::new(input);
 /// let mut output = Vec::new();
-/// let rules = vec![]; // Load rules from config files
 ///
-/// colorize_regex(&mut reader, &mut output, &rules)?;
-/// // Output contains ANSI-styled text
+/// // Construct a simple rule that matches "ERROR: (.*)" and applies a red bold style
+/// let re = Regex::new(r"ERROR: (.*)").unwrap();
+/// let style = Style::new().red().bold();
+/// let entry = GrcatConfigEntry::new(re, vec![style]);
+///
+/// // Call the colorizer; the example is marked `ignore` to avoid running as a doctest
+/// colorize_regex(&mut reader, &mut output, &[entry])?;
+///
+/// // `output` now contains ANSI-styled bytes representing the colored text
 /// ```
 #[allow(dead_code)] // Used in main.rs but may not be detected in all build configurations
 pub fn colorize_regex<R, W>(
@@ -103,6 +114,20 @@ where
     R: Read,
     W: Write,
 {
+    // Ensure colors are enabled for this colorization session
+    console::set_colors_enabled(true);
+    #[cfg(feature = "timetrace")]
+    let record_time = std::env::var_os("RGRCTIME").is_some();
+
+    #[cfg(feature = "timetrace")]
+    let overall_start = if record_time {
+        Some(Instant::now())
+    } else {
+        None
+    };
+
+    #[cfg(feature = "timetrace")]
+    let mut lines_processed: usize = 0;
     // ═══════════════════════════════════════════════════════════════════════════════
     // PHASE 1: INPUT PROCESSING - Set up buffered reading and line iteration
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -131,6 +156,10 @@ where
     for line in reader {
         // Extract line content, propagating any I/O errors
         let mut line = line?;
+        #[cfg(feature = "timetrace")]
+        if record_time {
+            lines_processed += 1;
+        }
 
         // ═══════════════════════════════════════════════════════════════════════════════
         // FAST PATH: Empty lines - preserve as single newline without processing
@@ -349,6 +378,17 @@ where
 
         // Always terminate line with newline (matches input format)
         writeln!(writer)?;
+    }
+
+    #[cfg(feature = "timetrace")]
+    if record_time {
+        if let Some(s) = overall_start {
+            eprintln!(
+                "[rgrc:time] colorizer total processed {} lines in {:?}",
+                lines_processed,
+                s.elapsed()
+            );
+        }
     }
 
     Ok(())

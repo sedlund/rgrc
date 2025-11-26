@@ -15,6 +15,9 @@ ver:
 
 release: rgrc.1.gz
 	cargo auditable build --release
+	
+minimal: rgrc.1.gz
+	cargo auditable build --profile minimal
 
 macos:
 	cargo auditable build --release --target x86_64-apple-darwin

@@ -31,7 +31,6 @@
 
 use std::io::{BufRead, Lines};
 
-use debug_print::debug_println;
 use fancy_regex::Regex;
 
 /// Parse a single space-separated style keyword and apply it to a Style.
@@ -708,8 +707,12 @@ pub struct GrcatConfigEntry {
     pub regex: Regex,
     /// Styles to apply to capture groups (index 0 = group 1, index 1 = group 2, etc.)
     pub colors: Vec<console::Style>,
+    /// If true, this rule should be ignored at runtime (treated as disabled).
     pub skip: bool,
+    /// How many times to apply this rule per line (Once/More/Stop).
     pub count: GrcatConfigEntryCount,
+    /// Optional replacement template used when `replace` is specified in the
+    /// configuration. Placeholders like `\1` are substituted with capture groups.
     pub replace: String,
 }
 
@@ -851,7 +854,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                             }
                             Err(_exc) => {
                                 // Log error and skip this entry (regex is required)
-                                debug_println!("Failed regexp: {:?}", _exc);
+                                eprintln!("Failed regexp: {:?}", _exc);
                             }
                         }
                     }
@@ -867,7 +870,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                             "more" => Some(GrcatConfigEntryCount::More),
                             "stop" => Some(GrcatConfigEntryCount::Stop),
                             _ => {
-                                debug_println!("Unknown count value: {}", value);
+                                eprintln!("Unknown count value: {}", value);
                                 None
                             }
                         };
@@ -882,10 +885,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                             "true" | "1" | "yes" => Some(true),
                             "false" | "0" | "no" => Some(false),
                             _ => {
-                                debug_println!(
-                                    "Unknown skip value: {}, defaulting to false",
-                                    value
-                                );
+                                eprintln!("Unknown skip value: {}, defaulting to false", value);
                                 Some(false)
                             }
                         };
