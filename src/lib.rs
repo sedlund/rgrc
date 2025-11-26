@@ -54,18 +54,11 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg(feature = "embed-configs")]
 include!(concat!(env!("OUT_DIR"), "/embedded_configs.rs"));
 
-#[cfg(not(feature = "embed-configs"))]
-/// When `embed-configs` is disabled, there are no embedded config files.
-pub const EMBEDDED_CONFIGS: &[(&str, &str)] = &[];
-
 /// The bundled `rgrc.conf` contents when `embed-configs` is enabled.
 /// This mirrors the on-disk `etc/rgrc.conf` file and is empty when embedding
 /// is disabled.
 #[cfg(feature = "embed-configs")]
 pub const EMBEDDED_GRC_CONF: &str = include_str!("../etc/rgrc.conf");
-
-#[cfg(not(feature = "embed-configs"))]
-pub const EMBEDDED_GRC_CONF: &str = "";
 
 /// Flush and rebuild the cache directory (embed-configs only)
 ///
@@ -100,11 +93,6 @@ pub fn flush_and_rebuild_cache() -> Option<(std::path::PathBuf, usize)> {
     };
 
     Some((new_cache_dir, config_count))
-}
-
-#[cfg(not(feature = "embed-configs"))]
-pub fn flush_and_rebuild_cache() -> Option<(std::path::PathBuf, usize)> {
-    None
 }
 
 // Helper function to get cache directory path
@@ -551,14 +539,8 @@ fn load_config_from_embedded(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     Vec::new()
 }
 
-#[cfg(not(feature = "embed-configs"))]
-#[allow(dead_code)]
-fn load_config_from_embedded(_pseudo_command: &str) -> Vec<GrcatConfigEntry> {
-    Vec::new()
-}
-
 #[cfg(test)]
-mod tests {
+mod lib_test {
     use super::*;
 
     // Note: These tests are documentation-based since the main() function
