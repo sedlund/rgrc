@@ -142,11 +142,7 @@ fn ensure_cache_populated() -> Option<std::path::PathBuf> {
     }
 
     // Only return Some if we successfully wrote at least one config file
-    if any_success {
-        Some(cache_dir)
-    } else {
-        None
-    }
+    if any_success { Some(cache_dir) } else { None }
 }
 
 /// Control whether colored output should be enabled for this run.
