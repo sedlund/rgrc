@@ -126,8 +126,8 @@ jobs:
         run: make data
       - uses: actions/upload-artifact@v5
         with:
-          name: rgrc-data-${{ env.VERSION }}
-          path: target/tarball/rgrc-data-${{ env.VERSION }}.zip
+          name: rgrc-data-${{ env.VERSION }}.tar.gz
+          path: target/tarball/rgrc-data-${{ env.VERSION }}.tar.gz
   deb:
     name: Build Debian packages
     runs-on: ubuntu-latest
@@ -219,11 +219,15 @@ jobs:
         with:
           path: artifacts
       - name: List artifacts
-        run: find artifacts -type f -name "*.zip" | sort
+        run: |
+          # List only release assets we intend to attach to the GitHub release
+          find artifacts -type f \( -name "*.zip" -o -name "*.tar.gz" -o -name "*.deb" \) | sort
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*.zip
+          # Support .zip, .tar.gz and .deb release artifacts
+          files: |
+            artifacts/**/*.{zip,tar.gz,deb}
           generate_release_notes: true
           draft: true
   publish-crate:
