@@ -132,12 +132,21 @@ fn ensure_cache_populated() -> Option<std::path::PathBuf> {
     std::fs::write(&grc_conf_path, EMBEDDED_GRC_CONF).ok()?;
 
     // Write all embedded configs
+    // Don't fail the entire cache population if a single file fails to write
+    let mut any_success = false;
     for (filename, content) in EMBEDDED_CONFIGS {
         let file_path = conf_dir.join(filename);
-        std::fs::write(file_path, content).ok()?;
+        if std::fs::write(file_path, content).is_ok() {
+            any_success = true;
+        }
     }
 
-    Some(cache_dir)
+    // Only return Some if we successfully wrote at least one config file
+    if any_success {
+        Some(cache_dir)
+    } else {
+        None
+    }
 }
 
 /// Control whether colored output should be enabled for this run.
