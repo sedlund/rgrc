@@ -1,7 +1,7 @@
 // Import testable components from lib
 use rgrc::{
     ColorMode,
-    args::parse_args,
+    args::{get_completion_script, parse_args},
     buffer::LineBufferedWriter,
     colorizer::colorize_regex as colorize,
     grc::GrcatConfigEntry,
@@ -63,6 +63,7 @@ fn flush_and_rebuild_cache() {
 /// - --aliases: Print shell aliases for commonly colorized commands.
 /// - --all-aliases: Print shell aliases for all known commands.
 /// - --except CMD1,CMD2,...: Exclude commands from alias generation.
+/// - --completions SHELL: Print completion script for SHELL (bash|zsh|fish|ash)
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command-line arguments
     let args = match parse_args() {
@@ -77,6 +78,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.show_version {
         println!("rgrc {}", env!("CARGO_PKG_VERSION"));
         std::process::exit(0);
+    }
+
+    // Handle --completions flag: print completions for the requested shell
+    if let Some(shell) = args.show_completions.as_deref() {
+        match get_completion_script(shell) {
+            Some(script) => {
+                print!("{}", script);
+                std::process::exit(0);
+            }
+            None => {
+                eprintln!("Unsupported shell for completions: {}", shell);
+                std::process::exit(1);
+            }
+        }
     }
 
     // Handle --aliases and --all-aliases flags: generate shell aliases for commands.

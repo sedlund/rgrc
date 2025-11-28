@@ -130,6 +130,7 @@ Options:
   --all-aliases       Generate aliases for all known commands
   --except=CMD,...    Exclude commands from alias generation
   --color=on|off|auto Control color output (default: auto)
+  --completions SHELL Print shell completion script for SHELL (bash|zsh|fish|ash)
 ```
 
 ## Examples
@@ -182,6 +183,24 @@ echo 'eval "$(rgrc --aliases)"' >> ~/.zshrc
 
 # Fish
 rgrc --aliases > ~/.config/fish/conf.d/rgrc.fish
+
+### Completions
+
+You can print shell completion scripts directly; supply one of: `bash`, `zsh`, `fish`, or `ash`.
+
+```bash
+# Bash completion script
+rgrc --completions bash > /etc/bash_completion.d/rgrc
+
+# Zsh
+rgrc --completions zsh > ~/.zfunc/_rgrc
+
+# Fish
+rgrc --completions fish > ~/.config/fish/completions/rgrc.fish
+
+# ash/sh (simple completion)
+rgrc --completions ash > /etc/profile.d/rgrc-completion.sh
+```
 ```
 
 ## Configuration Examples

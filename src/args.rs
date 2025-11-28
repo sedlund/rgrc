@@ -44,6 +44,8 @@ pub struct Args {
     pub flush_cache: bool,
     /// Print the CLI version and exit
     pub show_version: bool,
+    /// Print shell completions for specified shell (bash|zsh|fish|ash)
+    pub show_completions: Option<String>,
 }
 
 /// Parse command-line arguments
@@ -84,6 +86,7 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
     let mut except_aliases = Vec::new();
     let mut flush_cache = false;
     let mut show_version = false;
+    let mut show_completions: Option<String> = None;
 
     let mut i = 0;
     while i < args.len() {
@@ -139,6 +142,14 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
                     print_help();
                     std::process::exit(0);
                 }
+                "--completions" => {
+                    // next arg must be the shell name
+                    if i + 1 >= args.len() {
+                        return Err("Missing value for --completions".to_string());
+                    }
+                    show_completions = Some(args[i + 1].clone());
+                    i += 2;
+                }
                 _ => {
                     // Everything else is treated as command arguments
                     command.extend_from_slice(&args[i..]);
@@ -148,7 +159,13 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
         }
     }
 
-    if command.is_empty() && !show_aliases && !show_all_aliases && !flush_cache && !show_version {
+    if command.is_empty()
+        && !show_aliases
+        && !show_all_aliases
+        && !flush_cache
+        && !show_version
+        && show_completions.is_none()
+    {
         return Err("No command specified".to_string());
     }
 
@@ -160,7 +177,75 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
         except_aliases,
         flush_cache,
         show_version,
+        show_completions,
     })
+}
+
+/// Return a shell completion script for a supported shell, or None for an unsupported
+/// shell name.
+pub fn get_completion_script(shell: &str) -> Option<&'static str> {
+    match shell {
+        "bash" => Some(
+            r#"_rgrc_completions() {
+    local cur prev
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    if [[ ${COMP_CWORD} -gt 0 && ${COMP_WORDS[COMP_CWORD-1]} == "--completions" ]]; then
+        COMPREPLY=( $(compgen -W "bash zsh fish ash" -- "$cur") )
+        return 0
+    fi
+
+    if [[ ${cur} == --* ]]; then
+        COMPREPLY=( $(compgen -W "--color --aliases --all-aliases --except --flush-cache --help -h --version -v --completions" -- "$cur") )
+        return 0
+    fi
+}
+
+complete -F _rgrc_completions rgrc
+"#,
+        ),
+        "zsh" => Some(
+            r#"#compdef rgrc
+_rgrc() {
+  _arguments \
+    '--color=[Override color output]:mode:(on off auto)' \
+    '--aliases[Output shell aliases for available binaries]' \
+    '--all-aliases[Output all shell aliases]' \
+    '--except=[Exclude commands from alias generation]:commands:' \
+    '--flush-cache[Flush and rebuild cache dir]' \
+    '--help[Show help]' \
+    '--version[Show version]' \
+    '--completions=[Print completions for shell]:shell:(bash zsh fish ash)'
+}
+# Provide completion for the main cmd
+compdef _rgrc rgrc
+"#,
+        ),
+        "fish" => Some(
+            r#"# fish completion for rgrc
+complete -c rgrc -l color -d 'Override color output (on,off,auto)'
+complete -c rgrc -l aliases -d 'Output shell aliases for detected binaries'
+complete -c rgrc -l all-aliases -d 'Output all aliases'
+complete -c rgrc -l except -r -d 'Exclude commands from alias generation' -a '(__rgrc_list_commands)'
+complete -c rgrc -l flush-cache -d 'Flush cache (embed-configs only)'
+complete -c rgrc -l help -d 'Show help'
+complete -c rgrc -l version -s v -d 'Show version'
+complete -c rgrc -l completions -d 'Print completions for shell' -a 'bash zsh fish ash'
+
+function __rgrc_list_commands
+    # no-op placeholder for future dynamic completions
+    echo ""
+end
+"#,
+        ),
+        "ash" => Some(
+            r#"# ash / sh completion helper (simple - may need shell support)
+complete -W "--color --aliases --all-aliases --except --flush-cache --help -h --version -v --completions" rgrc
+"#,
+        ),
+        _ => None,
+    }
 }
 
 /// Print help message to stdout
@@ -170,14 +255,15 @@ fn print_help() {
     println!("Usage: rgrc [OPTIONS] COMMAND [ARGS...]");
     println!();
     println!("Options:");
-    println!("  --color MODE      Override color output (on, off, auto)");
-    println!("  --aliases         Output shell aliases for available binaries");
-    println!("  --all-aliases     Output all shell aliases");
-    println!("  --except CMD,..   Exclude commands from alias generation");
+    println!("  --color MODE         Override color output (on, off, auto)");
+    println!("  --aliases            Output shell aliases for available binaries");
+    println!("  --all-aliases        Output all shell aliases");
+    println!("  --except CMD,..      Exclude commands from alias generation");
+    println!("  --completions SHELL  Print shell completion script for SHELL (bash|zsh|fish|ash)");
     #[cfg(feature = "embed-configs")]
-    println!("  --flush-cache     Flush and rebuild cache directory (embed-configs only)");
-    println!("  --help, -h        Show this help message");
-    println!("  --version, -v     Show installed rgrc version and exit");
+    println!("  --flush-cache        Flush and rebuild cache directory (embed-configs only)");
+    println!("  --help, -h           Show this help message");
+    println!("  --version, -v        Show installed rgrc version and exit");
     println!();
     println!("Examples:");
     println!("  rgrc ping -c 4 google.com");
@@ -264,6 +350,12 @@ mod tests {
         assert!(result.is_ok());
         let args = result.unwrap();
         assert!(args.show_version);
+
+        // Test --completions
+        let result = parse_args_helper(vec!["--completions", "bash"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.show_completions, Some("bash".to_string()));
     }
 
     #[test]
@@ -287,6 +379,15 @@ mod tests {
         let result = parse_args_helper(vec!["--color=on"]);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("No command specified"));
+
+        // Missing value for --completions should be an error
+        let result = parse_args_helper(vec!["--completions"]);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .contains("Missing value for --completions")
+        );
     }
 
     // Helper function to test parse_args without std::env::args dependency
@@ -294,5 +395,14 @@ mod tests {
         // Convert Vec<&str> to Vec<String> to match parse_args_impl signature
         let args: Vec<String> = args.into_iter().map(|s| s.to_string()).collect();
         parse_args_impl(args)
+    }
+
+    #[test]
+    fn completion_scripts_present_for_supported_shells() {
+        assert!(get_completion_script("bash").is_some());
+        assert!(get_completion_script("zsh").is_some());
+        assert!(get_completion_script("fish").is_some());
+        assert!(get_completion_script("ash").is_some());
+        assert!(get_completion_script("unknown").is_none());
     }
 }
