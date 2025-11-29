@@ -653,6 +653,7 @@ pub enum GrcatConfigEntryCount {
 
 #[derive(Debug, Clone)]
 pub struct GrcatConfigEntry {
+    #[allow(dead_code)]
     /// The compiled regex pattern to match against output text
     pub regex: Regex,
     /// Styles to apply to capture groups (index 0 = group 1, index 1 = group 2, etc.)
@@ -661,6 +662,7 @@ pub struct GrcatConfigEntry {
     pub skip: bool,
     /// How many times to apply this rule per line (Once/More/Stop).
     pub count: GrcatConfigEntryCount,
+    #[allow(dead_code)]
     /// Optional replacement template used when `replace` is specified in the
     /// configuration. Placeholders like `\1` are substituted with capture groups.
     pub replace: String,
