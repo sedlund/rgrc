@@ -41,7 +41,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --all-features --verbose
     - name: Install cargo-tarpaulin
       run: |
         rustup component add llvm-tools-preview || true
@@ -50,7 +50,10 @@ jobs:
       run: |
         # produce an XML report for codecov (tarpaulin will create tarpaulin-report.xml)
         # fail the job on errors so uploads only run on valid reports
-        cargo tarpaulin --out Xml
+        # --all-features: enable all features including timetrace and embed-configs
+        # --workspace: include all crates in the workspace
+        # --timeout 120: allow 2 minutes per test (some integration tests are slow)
+        cargo tarpaulin --all-features --workspace --timeout 120 --out Xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
@@ -63,4 +66,4 @@ jobs:
     - name: Check format
       run: cargo fmt -- --check
     - name: Check with clippy
-      run: cargo clippy --all
+      run: cargo clippy --all-targets --all-features
