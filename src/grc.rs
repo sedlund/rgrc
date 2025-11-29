@@ -44,7 +44,7 @@ use fancy_regex::Regex;
 /// **Foreground colors:**
 /// - `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
 ///
-fn style_from_str(text: &str) -> Result<console::Style, ()> {
+pub fn style_from_str(text: &str) -> Result<console::Style, ()> {
     text.split(' ')
         .try_fold(console::Style::new(), |style, word| {
             // Handle ANSI escape sequences like "\033[38;5;140m"
@@ -160,7 +160,7 @@ fn style_from_str(text: &str) -> Result<console::Style, ()> {
 /// assert!(styles_from_str("bold red,invalid_color,green").is_err());
 /// ```
 #[allow(dead_code)]
-fn styles_from_str(text: &str) -> Result<Vec<console::Style>, ()> {
+pub fn styles_from_str(text: &str) -> Result<Vec<console::Style>, ()> {
     text.split(',').map(style_from_str).collect()
 }
 

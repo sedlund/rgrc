@@ -45,7 +45,7 @@ jobs:
     - name: Install cargo-tarpaulin
       run: |
         rustup component add llvm-tools-preview || true
-        cargo install cargo-tarpaulin --version 0.34 || true
+        cargo install cargo-tarpaulin --version 0.34.1 || true
     - name: Generate coverage report (tarpaulin)
       run: |
         # produce an XML report for codecov (tarpaulin will create tarpaulin-report.xml)
