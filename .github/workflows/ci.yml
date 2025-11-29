@@ -20,6 +20,23 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+    - name: Install cargo-tarpaulin
+      if: runner.os == 'Linux'
+      run: |
+        rustup component add llvm-tools-preview || true
+        cargo install cargo-tarpaulin --version 0.25.0 || true
+    - name: Generate coverage report (tarpaulin)
+      if: runner.os == 'Linux'
+      run: |
+        # produce an XML report for codecov (tarpaulin will create tarpaulin-report.xml)
+        cargo tarpaulin --out Xml || true
+    - name: Upload coverage to Codecov
+      if: runner.os == 'Linux'
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./tarpaulin-report.xml
+        fail_ci_if_error: false
+      # If this repo is private, add CODECOV_TOKEN as a repository secret
     - name: Check format
       run: cargo fmt -- --check
     - name: Check with clippy
