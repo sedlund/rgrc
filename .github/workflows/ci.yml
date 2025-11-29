@@ -29,13 +29,24 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         # produce an XML report for codecov (tarpaulin will create tarpaulin-report.xml)
-        cargo tarpaulin --out Xml || true
+        # fail the job on errors so uploads only run on valid reports
+        cargo tarpaulin --out Xml
+    - name: Show coverage files
+      if: runner.os == 'Linux'
+      run: |
+        echo "Coverage files in repo root and target/tarpaulin:"
+        ls -lah ./tarpaulin-report.xml || true
+        ls -lah target/tarpaulin || true
     - name: Upload coverage to Codecov
       if: runner.os == 'Linux'
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
-        files: ./tarpaulin-report.xml
-        fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: |
+          ./tarpaulin-report.xml
+          target/tarpaulin/*.json
+        verbose: true
+        fail_ci_if_error: true
       # If this repo is private, add CODECOV_TOKEN as a repository secret
     - name: Check format
       run: cargo fmt -- --check
