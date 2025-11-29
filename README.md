@@ -1,7 +1,13 @@
 # rgrc - Rusty Generic Colouriser
 
+<!-- Repository badges -->
 [![Rust](https://img.shields.io/badge/rust-2024--edition-orange)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/lazywalker/rgrc/actions/workflows/ci.yml/badge.svg)](https://github.com/lazywalker/rgrc/actions)
+[![crates.io](https://img.shields.io/crates/v/rgrc.svg)](https://crates.io/crates/rgrc)
+[![docs.rs](https://docs.rs/rgrc/badge.svg)](https://docs.rs/rgrc)
+[![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen.svg)](https://github.com/lazywalker/rgrc/network/updates)
+[![Maintenance](https://img.shields.io/maintenance/yes/2025)](https://github.com/lazywalker/rgrc)
 
 A fast, Rust-based command-line tool that colorizes the output of other commands using regex-based rules. Drop-in replacement for `grc` with better performance.
 
@@ -37,6 +43,7 @@ brew install rgrc
 yay -S rgrc
 ```
 
+### Usage
 
 ```bash
 # Colorize any command
