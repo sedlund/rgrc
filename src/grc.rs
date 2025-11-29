@@ -44,56 +44,6 @@ use fancy_regex::Regex;
 /// **Foreground colors:**
 /// - `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
 ///
-/// **Background colors:**
-/// - `on_black`, `on_red`, `on_green`, `on_yellow`, `on_blue`, `on_magenta`, `on_cyan`, `on_white`
-///
-/// **Text attributes:**
-/// - `bold`, `italic`, `underline`, `blink`, `reverse`
-/// - `bright_black`, `bright_red`, ..., `bright_white` (bright variants)
-///
-/// **Special keywords (no-op):**
-/// - `unchanged`, `default`, `dark`, `none`, empty strings
-///
-/// **ANSI escape sequences:**
-/// - Raw escape codes like `"\033[38;5;140m"` are skipped (not yet supported)
-///
-/// ## Arguments
-///
-/// * `text` - Space-separated style keywords (e.g., "bold red on_yellow")
-///
-/// ## Returns
-///
-/// - `Ok(Style)` - Successfully parsed style with all keywords applied
-/// - `Err(())` - Unrecognized keyword encountered (logs "unhandled style: ...")
-///
-/// ## Implementation Details
-///
-/// - Uses `try_fold` to sequentially apply each keyword to build a composite style
-/// - Short-circuits on first unrecognized keyword
-/// - Splits on spaces to handle multiple keywords
-/// - Keywords are case-sensitive and must match exactly
-///
-/// # Examples
-///
-/// ```ignore
-/// use console::Style;
-///
-/// // Single color
-/// let style = style_from_str("red").unwrap();
-///
-/// // Multiple attributes
-/// let style = style_from_str("bold cyan").unwrap();
-///
-/// // Color with background
-/// let style = style_from_str("white on_blue").unwrap();
-///
-/// // Bright color variant
-/// let style = style_from_str("bold bright_green").unwrap();
-///
-/// // Invalid keyword
-/// assert!(style_from_str("not_a_color").is_err());
-/// ```
-#[allow(dead_code)]
 fn style_from_str(text: &str) -> Result<console::Style, ()> {
     text.split(' ')
         .try_fold(console::Style::new(), |style, word| {
