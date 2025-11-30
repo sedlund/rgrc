@@ -271,13 +271,13 @@ fn print_help() {
     println!("Usage: rgrc [OPTIONS] COMMAND [ARGS...]");
     println!();
     println!("Options:");
-    println!("  --color MODE         Override color output (on, off, auto)");
+    println!("  --color MODE         Override color output (on|off|auto)");
     println!("  --aliases            Output shell aliases for available binaries");
     println!("  --all-aliases        Output all shell aliases");
     println!("  --except CMD,..      Exclude commands from alias generation");
     println!("  --completions SHELL  Print shell completion script for SHELL (bash|zsh|fish|ash)");
     #[cfg(feature = "embed-configs")]
-    println!("  --flush-cache        Flush and rebuild cache directory (embed-configs only)");
+    println!("  --flush-cache        Flush and rebuild cache directory");
     println!("  --help, -h           Show this help message");
     println!("  --version, -v        Show installed rgrc version and exit");
     println!();
