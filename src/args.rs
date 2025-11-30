@@ -5,13 +5,13 @@
 
 use crate::ColorMode;
 
-
 /// Debug level for rule debugging output.
 ///
 /// Levels:
 /// - `Off` (0): No debug output
 /// - `Basic` (1): Show matched rules with count and style info
 /// - `Verbose` (2): Show detailed rule matches with regex patterns and style details
+#[cfg(feature = "debug")]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum DebugLevel {
     Off = 0,
@@ -19,6 +19,7 @@ pub enum DebugLevel {
     Verbose = 2,
 }
 
+#[cfg(feature = "debug")]
 impl std::str::FromStr for DebugLevel {
     type Err = String;
 
@@ -29,6 +30,21 @@ impl std::str::FromStr for DebugLevel {
             "2" => Ok(DebugLevel::Verbose),
             _ => Err(format!("Invalid debug level: {}. Must be 0, 1, or 2.", s)),
         }
+    }
+}
+
+#[cfg(not(feature = "debug"))]
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum DebugLevel {
+    Off = 0,
+}
+
+#[cfg(not(feature = "debug"))]
+impl std::str::FromStr for DebugLevel {
+    type Err = String;
+
+    fn from_str(_s: &str) -> Result<Self, Self::Err> {
+        Ok(DebugLevel::Off)
     }
 }
 
@@ -142,7 +158,10 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
     let mut flush_cache = false;
     let mut show_version = false;
     let mut show_completions: Option<String> = None;
+    #[cfg(feature = "debug")]
     let mut debug_level = DebugLevel::Off;
+    #[cfg(not(feature = "debug"))]
+    let debug_level = DebugLevel::Off;
 
     let mut i = 0;
     while i < args.len() {
@@ -178,12 +197,20 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
                 i += 1;
             }
             arg if arg.starts_with("--debug") => {
-                // Handle --debug, --debug=0, --debug=1, --debug=2
-                if arg == "--debug" {
-                    // Default to Basic level
-                    debug_level = DebugLevel::Basic;
-                } else if let Some(value) = arg.strip_prefix("--debug=") {
-                    debug_level = value.parse()?;
+                #[cfg(feature = "debug")]
+                {
+                    // Handle --debug, --debug=0, --debug=1, --debug=2
+                    if arg == "--debug" {
+                        // Default to Basic level
+                        debug_level = DebugLevel::Basic;
+                    } else if let Some(value) = arg.strip_prefix("--debug=") {
+                        debug_level = value.parse()?;
+                    }
+                }
+                #[cfg(not(feature = "debug"))]
+                {
+                    // Debug feature is disabled, ignore debug flag
+                    let _ = arg;
                 }
                 i += 1;
             }
@@ -321,27 +348,34 @@ fn print_help() {
     println!("  --flush-cache        Flush and rebuild cache directory");
     println!("  --help, -h           Show this help message");
     println!("  --version, -v        Show installed rgrc version and exit");
+    #[cfg(feature = "debug")]
     println!("  --debug [LEVEL]      Enable debug mode (0=off, 1=basic, 2=verbose)");
     println!();
-    println!("Debug Levels:");
-    println!("  --debug or --debug=1 (Basic)");
-    println!("    Show matched rules count and style count for each line");
-    println!("    Format: [Line N] ✓ Matched M rule(s): #R (S style(s)), ...");
-    println!();
-    println!("  --debug=0 (Off)");
-    println!("    Disable debug output (default behavior)");
-    println!();
-    println!("  --debug=2 (Verbose)");
-    println!("    Show detailed matching information including:");
-    println!("    - Rule regex patterns");
-    println!("    - Matched text with capture groups (space-separated)");
-    println!("    - Applied styles for each capture group");
-    println!();
+    #[cfg(feature = "debug")]
+    {
+        println!("Debug Levels:");
+        println!("  --debug or --debug=1 (Basic)");
+        println!("    Show matched rules count and style count for each line");
+        println!("    Format: [Line N] ✓ Matched M rule(s): #R (S style(s)), ...");
+        println!();
+        println!("  --debug=0 (Off)");
+        println!("    Disable debug output (default behavior)");
+        println!();
+        println!("  --debug=2 (Verbose)");
+        println!("    Show detailed matching information including:");
+        println!("    - Rule regex patterns");
+        println!("    - Matched text with capture groups (space-separated)");
+        println!("    - Applied styles for each capture group");
+        println!();
+    }
     println!("Examples:");
     println!("  rgrc ping -c 4 google.com");
     println!("  rgrc --color=off ls -la");
-    println!("  rgrc --debug=1 id                # Show basic debug info");
-    println!("  rgrc --debug=2 id                # Show verbose debug info");
+    #[cfg(feature = "debug")]
+    {
+        println!("  rgrc --debug=1 id                # Show basic debug info");
+        println!("  rgrc --debug=2 id                # Show verbose debug info");
+    }
     println!("  rgrc --aliases");
 }
 
@@ -479,38 +513,41 @@ mod tests {
         let args = result.unwrap();
         assert_eq!(args.except_aliases, vec!["ls", "df", "ps"]);
 
-        // Test --debug flag
-        let result = parse_args_helper(vec!["--debug", "ls"]);
-        assert!(result.is_ok());
-        let args = result.unwrap();
-        assert_eq!(args.debug_level, DebugLevel::Basic);
-        assert_eq!(args.command, vec!["ls"]);
+        #[cfg(feature = "debug")]
+        {
+            // Test --debug flag
+            let result = parse_args_helper(vec!["--debug", "ls"]);
+            assert!(result.is_ok());
+            let args = result.unwrap();
+            assert_eq!(args.debug_level, DebugLevel::Basic);
+            assert_eq!(args.command, vec!["ls"]);
 
-        // Test --debug=1 flag
-        let result = parse_args_helper(vec!["--debug=1", "ping", "localhost"]);
-        assert!(result.is_ok());
-        let args = result.unwrap();
-        assert_eq!(args.debug_level, DebugLevel::Basic);
-        assert_eq!(args.command, vec!["ping", "localhost"]);
+            // Test --debug=1 flag
+            let result = parse_args_helper(vec!["--debug=1", "ping", "localhost"]);
+            assert!(result.is_ok());
+            let args = result.unwrap();
+            assert_eq!(args.debug_level, DebugLevel::Basic);
+            assert_eq!(args.command, vec!["ping", "localhost"]);
 
-        // Test --debug=0 flag (Off)
-        let result = parse_args_helper(vec!["--debug=0", "ls"]);
-        assert!(result.is_ok());
-        let args = result.unwrap();
-        assert_eq!(args.debug_level, DebugLevel::Off);
-        assert_eq!(args.command, vec!["ls"]);
+            // Test --debug=0 flag (Off)
+            let result = parse_args_helper(vec!["--debug=0", "ls"]);
+            assert!(result.is_ok());
+            let args = result.unwrap();
+            assert_eq!(args.debug_level, DebugLevel::Off);
+            assert_eq!(args.command, vec!["ls"]);
 
-        // Test --debug=2 flag (Verbose)
-        let result = parse_args_helper(vec!["--debug=2", "cat"]);
-        assert!(result.is_ok());
-        let args = result.unwrap();
-        assert_eq!(args.debug_level, DebugLevel::Verbose);
-        assert_eq!(args.command, vec!["cat"]);
+            // Test --debug=2 flag (Verbose)
+            let result = parse_args_helper(vec!["--debug=2", "cat"]);
+            assert!(result.is_ok());
+            let args = result.unwrap();
+            assert_eq!(args.debug_level, DebugLevel::Verbose);
+            assert_eq!(args.command, vec!["cat"]);
 
-        // Test invalid debug level
-        let result = parse_args_helper(vec!["--debug=3", "ls"]);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Invalid debug level"));
+            // Test invalid debug level
+            let result = parse_args_helper(vec!["--debug=3", "ls"]);
+            assert!(result.is_err());
+            assert!(result.unwrap_err().contains("Invalid debug level"));
+        }
     }
 
     #[test]

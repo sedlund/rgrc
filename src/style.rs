@@ -173,6 +173,7 @@ impl Style {
         self
     }
 
+    #[allow(dead_code)]
     /// Dim text (low intensity)
     #[inline]
     pub const fn dim(mut self) -> Self {

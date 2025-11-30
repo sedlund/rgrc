@@ -538,6 +538,7 @@ pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
 }
 
 /// Helper function to format Style info with colors applied
+#[cfg(feature = "debug")]
 fn format_style_info(_style: &Style) -> String {
     // Return simple representation for display
     // The style itself will be applied for formatting
@@ -559,6 +560,7 @@ fn format_style_info(_style: &Style) -> String {
 ///
 /// * `Ok(())` - Successfully processed all input
 /// * `Err(Box<dyn Error>)` - I/O or processing error
+#[cfg(feature = "debug")]
 pub fn colorize_regex_with_debug<R, W>(
     reader: &mut R,
     writer: &mut W,
