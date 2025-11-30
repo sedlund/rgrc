@@ -222,7 +222,7 @@ where
                     // ═══════════════════════════════════════════════════════════════════════════════
 
                     // Iterate through all capture groups (index 0 = full match, 1+ = subgroups)
-                    for (i, mmatch) in matches.iter().enumerate() {
+                    for (i, mmatch) in matches.iter().into_iter().enumerate() {
                         if let Some(mmatch) = mmatch {
                             let start = mmatch.start();
                             let end = mmatch.end();
@@ -253,7 +253,7 @@ where
                             let mut replacement = rule.replace.clone();
 
                             // Replace \1, \2, etc. with corresponding capture groups
-                            for (i, capture) in matches.iter().enumerate() {
+                            for (i, capture) in matches.iter().into_iter().enumerate() {
                                 if let Some(capture_match) = capture {
                                     let capture_text =
                                         &line[capture_match.start()..capture_match.end()];

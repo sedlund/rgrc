@@ -181,37 +181,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    // Spawn rule loading in background if we need colorization
-    let rules_handle = if should_colorize {
-        let pseudo_command_clone = pseudo_command.clone();
-        Some(std::thread::spawn(move || {
-            #[cfg(feature = "timetrace")]
-            let t_start = Instant::now();
-            
-            let r = load_rules_for_command(&pseudo_command_clone);
-            
-            #[cfg(feature = "timetrace")]
-            if std::env::var_os("RGRCTIME").is_some() {
-                eprintln!(
-                    "[rgrc:time] load_rules_for_command: {:} in {:?}",
-                    &pseudo_command_clone,
-                    t_start.elapsed()
-                );
-            }
-            r
-        }))
+    // Load rules if colorization is needed
+    #[cfg(feature = "timetrace")]
+    let t_load_start = if record_time { Some(Instant::now()) } else { None };
+
+    let rules: Vec<GrcatConfigEntry> = if should_colorize {
+        load_rules_for_command(&pseudo_command)
     } else {
-        None
+        Vec::new()
     };
 
-    // Command setup continues in parallel with rule loading...
+    #[cfg(feature = "timetrace")]
+    if let Some(start) = t_load_start {
+        if record_time {
+            eprintln!(
+                "[rgrc:time] load_rules_for_command: {:} in {:?}",
+                &pseudo_command,
+                start.elapsed()
+            );
+        }
+    }
 
     // Spawn the command with appropriate stdout handling
     let mut cmd = Command::new(command_name);
     cmd.args(args.command.iter().skip(1));
-
-    // OPTIMIZATION: Concurrent loading - spawn child and load rules in parallel
-    // This reduces startup latency by 10-30ms for commands with configuration files
 
     // Optimization: When colorization is not needed AND output goes directly to terminal,
     // let the child process output directly to stdout. This completely avoids any piping overhead.
@@ -246,13 +239,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         std::process::exit(ecode.code().unwrap_or(1));
     }
-
-    // Wait for rules to finish loading (if we started loading them)
-    let rules: Vec<GrcatConfigEntry> = if let Some(handle) = rules_handle {
-        handle.join().unwrap_or_else(|_| Vec::new())
-    } else {
-        Vec::new()
-    };
 
     // Final check: we need both the decision to colorize AND actual rules
     // If no rules were loaded, skip colorization even if it was requested

@@ -9,8 +9,7 @@
 // - Lines 698-845: GrcConfigReader comment handling, regex compilation, incomplete pairs
 // - Error paths: unknown keywords, invalid regex, empty colours, invalid count values
 
-use fancy_regex::Regex;
-use rgrc::grc::{GrcatConfigEntry, GrcatConfigEntryCount};
+use rgrc::grc::{CompiledRegex, GrcatConfigEntry, GrcatConfigEntryCount};
 use std::io::BufRead;
 
 /// Line 53: ANSI escape code handling in style_from_str
@@ -199,7 +198,7 @@ fn test_grcat_reader_empty_colours_vector() {
 /// count=More, replace="", skip=false.
 #[test]
 fn test_grcat_config_entry_new() {
-    let regex = Regex::new(r"test").unwrap();
+    let regex = CompiledRegex::new(r"test").unwrap();
     let style = console::Style::new().red();
     let entry = GrcatConfigEntry::new(regex, vec![style]);
 
