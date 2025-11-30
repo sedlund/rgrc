@@ -148,12 +148,50 @@ pub fn should_use_colorization_for_command_supported(command: &str) -> bool {
 /// (e.g. `rgrc ls` should not colorize but `rgrc ls -l` should).
 pub const PSEUDO_NO_COLOR: &[&str] = &["ls"];
 
-/// Check whether an exact pseudo_command should be excluded from colorization.
+/// Check whether a pseudo_command should be excluded from colorization.
+/// 
+/// Returns `true` if:
+/// 1. The command is just the command name alone (e.g., "ls")
+/// 2. The command is followed by any non-flag arguments (e.g., "ls /home", "ls ~", "ls .")
+///
+/// Returns `false` if the first argument starts with `-` (indicating flags like "-l", "--long")
+///
+/// # Examples
+///
+/// ```ignore
+/// assert!(pseudo_command_excluded("ls"));        // command alone
+/// assert!(pseudo_command_excluded("ls /home"));  // followed by path
+/// assert!(pseudo_command_excluded("ls ~"));      // followed by path
+/// assert!(pseudo_command_excluded("ls ."));      // followed by path
+/// assert!(pseudo_command_excluded("ls somefile")); // followed by filename
+/// assert!(!pseudo_command_excluded("ls -l"));    // followed by flag
+/// assert!(!pseudo_command_excluded("ls --long")); // followed by flag
+/// assert!(!pseudo_command_excluded("ls -l /home")); // followed by flag (even if path after)
+/// ```
 pub fn pseudo_command_excluded(pseudo_command: &str) -> bool {
     if pseudo_command.is_empty() {
         return false;
     }
-    PSEUDO_NO_COLOR.contains(&pseudo_command)
+
+    // Split into parts
+    let parts: Vec<&str> = pseudo_command.split_whitespace().collect();
+    if parts.is_empty() {
+        return false;
+    }
+
+    // Check if the command is in the excluded list
+    if !PSEUDO_NO_COLOR.contains(&parts[0]) {
+        return false;
+    }
+
+    // If it's just the command alone, exclude it
+    if parts.len() == 1 {
+        return true;
+    }
+
+    // If there's a next part, check if it starts with '-' (indicating a flag)
+    // If it does NOT start with '-', then it's a path/argument, so exclude it
+    !parts[1].starts_with('-')
 }
 
 #[cfg(test)]
@@ -224,8 +262,34 @@ mod tests {
 
     #[test]
     fn test_pseudo_command_excluded() {
+        // Command alone should be excluded
         assert!(pseudo_command_excluded("ls"));
+        
+        // Command with path arguments should be excluded
+        assert!(pseudo_command_excluded("ls ~"));
+        assert!(pseudo_command_excluded("ls ~/"));
+        assert!(pseudo_command_excluded("ls /home"));
+        assert!(pseudo_command_excluded("ls ."));
+        assert!(pseudo_command_excluded("ls ./"));
+        assert!(pseudo_command_excluded("ls .."));
+        assert!(pseudo_command_excluded("ls /"));
+        
+        // Command with filename/non-flag arguments should be excluded
+        assert!(pseudo_command_excluded("ls somefile"));
+        assert!(pseudo_command_excluded("ls file.txt"));
+        
+        // Command with flags should NOT be excluded
         assert!(!pseudo_command_excluded("ls -l"));
+        assert!(!pseudo_command_excluded("ls -l /home"));
+        assert!(!pseudo_command_excluded("ls -la"));
+        assert!(!pseudo_command_excluded("ls --long"));
+        assert!(!pseudo_command_excluded("ls --long /home"));
+        
+        // Other commands should not be excluded
+        assert!(!pseudo_command_excluded("df"));
+        assert!(!pseudo_command_excluded("df /home"));
+        
+        // Empty string should not be excluded
         assert!(!pseudo_command_excluded(""));
     }
 }
