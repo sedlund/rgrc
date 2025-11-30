@@ -82,18 +82,67 @@ impl Lookaround {
     pub fn verify(&self, text: &str, match_start: usize, match_end: usize) -> bool {
         match self {
             Lookaround::Ahead { regex, pattern } => {
-                // Fast path for common patterns
-                if pattern == r"\s|$" || pattern == r"$|\s" {
-                    // Check if at end or followed by whitespace
-                    if match_end >= text.len() {
-                        return true;
-                    }
-                    let remaining_bytes = text.as_bytes();
-                    if match_end < remaining_bytes.len() {
-                        let ch = remaining_bytes[match_end];
+                // Fast path for common patterns - avoid regex compilation overhead
+                match pattern.as_str() {
+                    // Pattern: \s|$ or $|\s (whitespace or end)
+                    r"\s|$" | r"$|\s" => {
+                        if match_end >= text.len() {
+                            return true;
+                        }
+                        let ch = text.as_bytes()[match_end];
                         return ch == b' ' || ch == b'\t' || ch == b'\n' || ch == b'\r';
                     }
-                    return false;
+                    // Pattern: \s (just whitespace)
+                    r"\s" => {
+                        if match_end >= text.len() {
+                            return false;
+                        }
+                        let ch = text.as_bytes()[match_end];
+                        return ch == b' ' || ch == b'\t' || ch == b'\n' || ch == b'\r';
+                    }
+                    // Pattern: $ (just end of line/string)
+                    "$" => {
+                        return match_end >= text.len();
+                    }
+                    // Pattern: \s[A-Z] (whitespace followed by uppercase letter)
+                    r"\s[A-Z]" => {
+                        if match_end + 1 >= text.len() {
+                            return false;
+                        }
+                        let bytes = text.as_bytes();
+                        let ch1 = bytes[match_end];
+                        let ch2 = bytes[match_end + 1];
+                        return (ch1 == b' ' || ch1 == b'\t' || ch1 == b'\n' || ch1 == b'\r')
+                            && (ch2 >= b'A' && ch2 <= b'Z');
+                    }
+                    // Pattern: \s[A-Z][a-z]{2}\s (e.g., " Nov ")
+                    r"\s[A-Z][a-z]{2}\s" => {
+                        if match_end + 4 >= text.len() {
+                            return false;
+                        }
+                        let bytes = text.as_bytes();
+                        let ch0 = bytes[match_end];
+                        let ch1 = bytes[match_end + 1];
+                        let ch2 = bytes[match_end + 2];
+                        let ch3 = bytes[match_end + 3];
+                        let ch4 = bytes[match_end + 4];
+                        return (ch0 == b' ' || ch0 == b'\t')
+                            && (ch1 >= b'A' && ch1 <= b'Z')
+                            && (ch2 >= b'a' && ch2 <= b'z')
+                            && (ch3 >= b'a' && ch3 <= b'z')
+                            && (ch4 == b' ' || ch4 == b'\t');
+                    }
+                    // Pattern: [:/] (colon or slash)
+                    "[:/]" => {
+                        if match_end >= text.len() {
+                            return false;
+                        }
+                        let ch = text.as_bytes()[match_end];
+                        return ch == b':' || ch == b'/';
+                    }
+                    _ => {
+                        // Fall through to regex matching
+                    }
                 }
 
                 // Check if the pattern matches at the position after match_end

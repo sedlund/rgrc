@@ -76,6 +76,56 @@ fn benchmark_no_lookaround(c: &mut Criterion) {
     });
 }
 
+fn benchmark_fast_path_whitespace(c: &mut Criterion) {
+    let pattern = r"\d+(?=\s)";
+    let regex = CompiledRegex::new(pattern).unwrap();
+    let text = "123 456 789 012 345 678 901 234 567 890";
+
+    c.bench_function("fast_path_whitespace", |b| {
+        b.iter(|| regex.is_match(black_box(text)));
+    });
+}
+
+fn benchmark_fast_path_end_of_line(c: &mut Criterion) {
+    let pattern = r"\d+(?=$)";
+    let regex = CompiledRegex::new(pattern).unwrap();
+    let text = "123 456 789";
+
+    c.bench_function("fast_path_end_of_line", |b| {
+        b.iter(|| regex.is_match(black_box(text)));
+    });
+}
+
+fn benchmark_fast_path_month(c: &mut Criterion) {
+    let pattern = r"\d+(?=\s[A-Z][a-z]{2}\s)";
+    let regex = CompiledRegex::new(pattern).unwrap();
+    let text = "123 Nov 30 456 Dec 25 789 Jan 01";
+
+    c.bench_function("fast_path_month", |b| {
+        b.iter(|| regex.is_match(black_box(text)));
+    });
+}
+
+fn benchmark_fast_path_colon_slash(c: &mut Criterion) {
+    let pattern = r"\w+(?=[:/])";
+    let regex = CompiledRegex::new(pattern).unwrap();
+    let text = "http://example.com:8080/path";
+
+    c.bench_function("fast_path_colon_slash", |b| {
+        b.iter(|| regex.is_match(black_box(text)));
+    });
+}
+
+fn benchmark_fast_path_uppercase(c: &mut Criterion) {
+    let pattern = r"\w+(?=\s[A-Z])";
+    let regex = CompiledRegex::new(pattern).unwrap();
+    let text = "test WORD another VALUE";
+
+    c.bench_function("fast_path_uppercase", |b| {
+        b.iter(|| regex.is_match(black_box(text)));
+    });
+}
+
 criterion_group!(
     benches,
     benchmark_lookahead_patterns,
@@ -84,6 +134,11 @@ criterion_group!(
     benchmark_ls_file_size,
     benchmark_find_all_matches,
     benchmark_docker_ps_pattern,
-    benchmark_no_lookaround
+    benchmark_no_lookaround,
+    benchmark_fast_path_whitespace,
+    benchmark_fast_path_end_of_line,
+    benchmark_fast_path_month,
+    benchmark_fast_path_colon_slash,
+    benchmark_fast_path_uppercase
 );
 criterion_main!(benches);
