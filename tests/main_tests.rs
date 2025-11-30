@@ -7,6 +7,10 @@
 // - Lines 186-192: timetrace feature timing paths
 // - Lines 222-247: command spawning, stdout handling, exit code propagation
 // - Error paths: spawn failures, wait errors, command not found (exit 127)
+//
+// Note: These tests spawn the compiled binary as a subprocess. When cross-compiling
+// (e.g., aarch64-unknown-linux-musl on x86_64), subprocess spawning fails under QEMU.
+// We skip these integration tests during cross-compilation by checking for native x86_64.
 
 use std::process::{Command, Stdio};
 
@@ -14,6 +18,7 @@ use std::process::{Command, Stdio};
 /// Tests that rgrc exits with an error when invoked without a command argument.
 /// This verifies the args.command.is_empty() check and error return path.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_empty_command_exits_with_error() {
     // Test line 131-132: empty command handling
     let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -38,6 +43,7 @@ fn test_empty_command_exits_with_error() {
 /// Tests that rgrc returns exit code 127 when trying to run a nonexistent command.
 /// This exercises the spawn error handling path and ErrorKind::NotFound branch.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_nonexistent_command_returns_127() {
     // Test lines 222-223, 230-232: command not found error path
     let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -56,6 +62,7 @@ fn test_nonexistent_command_returns_127() {
 /// Tests that --color=off prevents ANSI escape codes in output.
 /// This verifies the ColorMode::Off branch and should_colorize=false path.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_color_off_mode_no_ansi() {
     // Test lines 149-154: ColorMode::Off branch
     let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -74,6 +81,7 @@ fn test_color_off_mode_no_ansi() {
 /// Tests that --color=on enables colorization even when stdout is not a terminal.
 /// This verifies the ColorMode::On branch sets should_colorize=true unconditionally.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_color_on_mode_enables_colorization() {
     // Test lines 149-154: ColorMode::On branch
     let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -91,6 +99,7 @@ fn test_color_on_mode_enables_colorization() {
 /// Tests that commands matching the pseudo_command pattern are excluded from colorization.
 /// Verifies the exact match check against the exclusion list.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_pseudo_command_exact_match_exclusion() {
     // Test lines 167: pseudo_command exclusion check
     // When pseudo_command is exactly "ls", it should be excluded
@@ -107,6 +116,7 @@ fn test_pseudo_command_exact_match_exclusion() {
 /// Tests that output can be properly redirected when stdout is not a terminal.
 /// This exercises the piped output path with colorization potentially disabled.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_piped_output_not_to_terminal() {
     // Test lines 222: stdout is not terminal path
     let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -124,6 +134,7 @@ fn test_piped_output_not_to_terminal() {
 /// Tests error handling when Command::spawn() fails.
 /// This verifies the spawn error path and proper error message reporting.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_spawn_error_handling() {
     // Test lines 226-235: spawn error handling
     // Try to run a command that will fail to spawn
@@ -142,7 +153,7 @@ fn test_spawn_error_handling() {
 /// Tests that the timetrace feature, when enabled with RGRCTIME env var,
 /// records and reports timing information. Feature-gated test.
 #[test]
-#[cfg(feature = "timetrace")]
+#[cfg(all(feature = "timetrace", target_arch = "x86_64"))]
 fn test_timetrace_feature_with_env_var() {
     // Test lines 186-192: timetrace feature paths
     let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -162,6 +173,7 @@ fn test_timetrace_feature_with_env_var() {
 /// Tests that command-line arguments are correctly passed through to the spawned command.
 /// Verifies the args forwarding mechanism works correctly.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_command_with_args_passes_through() {
     // Test that command arguments are properly passed through
     let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -180,6 +192,7 @@ fn test_command_with_args_passes_through() {
 /// Tests that expensive rule loading is skipped when should_colorize is false.
 /// This verifies the performance optimization path when colorization is disabled.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_rules_not_loaded_when_color_off() {
     // Test lines 195, 203: rules loading is skipped when should_colorize is false
     // Using --color=off should skip expensive rule loading
@@ -197,6 +210,7 @@ fn test_rules_not_loaded_when_color_off() {
 /// Tests error handling when cache directory cannot be created during --flush-cache.
 /// This exercises the None branch when cache rebuild fails (requires embed-configs feature).
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_flush_cache_error_path() {
     // Test lines 41-42: flush_cache error handling
     // This tests the None branch when cache rebuild fails
@@ -227,6 +241,7 @@ fn test_flush_cache_error_path() {
 /// Tests that invalid --color mode arguments are properly rejected with an error.
 /// Verifies argument validation for the color mode parameter.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_invalid_color_mode_argument() {
     // Test color mode parsing error
     let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -243,6 +258,7 @@ fn test_invalid_color_mode_argument() {
 /// Tests that when console doesn't support colors, colorization is disabled.
 /// Covers: src/main.rs:143-147 console_supports_colors == false branch
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_console_no_color_support() {
     // Test line 143-147: console doesn't support colors
     // When NO_COLOR env var is set, console reports no color support
@@ -263,6 +279,7 @@ fn test_console_no_color_support() {
 /// stdout/stderr are inherited directly without piping.
 /// Covers: src/main.rs:222-223 stdout_is_terminal && !should_colorize path
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_stdout_inherit_when_no_colorization() {
     // Test line 222-223: stdout inheritance when not colorizing
     let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -281,6 +298,7 @@ fn test_stdout_inherit_when_no_colorization() {
 /// Tests behavior when console color support is disabled via NO_COLOR environment variable.
 /// This verifies the colors_enabled() check and fallback behavior.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_console_colors_disabled_path() {
     // Test lines 145-148: console doesn't support colors path
     // Force NO_COLOR environment to disable colors
@@ -300,6 +318,7 @@ fn test_console_colors_disabled_path() {
 /// Tests the should_use_colorization_for_command_supported logic.
 /// Verifies that known commands trigger the colorization path.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_supported_command_colorization_check() {
     // Test lines 154-157: should_use_colorization_for_command_supported
     // Use a known supported command like 'ping' or 'ls'
@@ -315,6 +334,7 @@ fn test_supported_command_colorization_check() {
 /// Tests the wait() error handling path (though wait() rarely fails in practice).
 /// Primarily verifies the normal success case of the wait operation.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_wait_error_handling() {
     // Test lines 240-244: wait error handling
     // This is harder to test directly as wait() rarely fails
@@ -333,6 +353,7 @@ fn test_wait_error_handling() {
 /// Tests that the child process's exit code is correctly propagated to rgrc's exit code.
 /// Verifies that non-zero exit codes from spawned commands are properly returned.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_child_exit_code_propagation() {
     // Test lines 247: exit code propagation
     // Run a command that exits with a specific non-zero code
@@ -351,6 +372,7 @@ fn test_child_exit_code_propagation() {
 /// Tests the performance optimization where stdout is inherited directly
 /// when colorization is disabled and output goes to a terminal.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_stdout_inherit_for_terminal() {
     // Test lines 222-247: direct stdout inheritance when not colorizing and terminal output
     // This path uses Stdio::inherit() for performance
@@ -368,6 +390,7 @@ fn test_stdout_inherit_for_terminal() {
 /// Tests that when no rules match a command, colorization is skipped.
 /// This verifies the rules.is_empty() optimization path.
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn test_empty_rules_no_colorization() {
     // Test lines 206: rules.is_empty() check
     // When a command has no matching rules, colorization should be skipped
