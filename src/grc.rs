@@ -272,6 +272,16 @@ impl<'t> Match<'t> {
             Match::Fancy(m, offset) => m.end() + offset,
         }
     }
+
+    /// Get the matched text as a string slice.
+    #[allow(dead_code)]
+    pub fn as_str(&self) -> &'t str {
+        match self {
+            Match::Fast(m, _) => m.as_str(),
+            #[cfg(feature = "fancy-regex")]
+            Match::Fancy(m, _) => m.as_str(),
+        }
+    }
 }
 
 /// Parse a single space-separated style keyword and apply it to a Style.

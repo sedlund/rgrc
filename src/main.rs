@@ -1,8 +1,9 @@
 // Import testable components from lib
 use rgrc::{
     ColorMode,
-    args::{get_completion_script, parse_args},
+    args::{DebugLevel, get_completion_script, parse_args},
     buffer::LineBufferedWriter,
+    colorize_regex_with_debug,
     colorizer::colorize_regex as colorize,
     grc::GrcatConfigEntry,
     load_rules_for_command,
@@ -284,34 +285,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a line-buffered writer that flushes after each line
     let mut line_buffered_writer = LineBufferedWriter::new(&mut buffered_writer);
 
-    // Measure colorize performance when requested (feature guarded)
-    #[cfg(feature = "timetrace")]
-    {
-        if record_time {
-            let t_before_colorize = Instant::now();
-            colorize(
-                &mut buffered_stdout,
-                &mut line_buffered_writer,
-                rules.as_slice(),
-            )?;
-            eprintln!("[rgrc:time] colorize: {:?}", t_before_colorize.elapsed());
-        } else {
+    // Use debug colorizer if debug_level is not Off
+    if args.debug_level != DebugLevel::Off {
+        colorize_regex_with_debug(
+            &mut buffered_stdout,
+            &mut line_buffered_writer,
+            rules.as_slice(),
+            args.debug_level,
+        )?;
+    } else {
+        // Measure colorize performance when requested (feature guarded)
+        #[cfg(feature = "timetrace")]
+        {
+            if record_time {
+                let t_before_colorize = Instant::now();
+                colorize(
+                    &mut buffered_stdout,
+                    &mut line_buffered_writer,
+                    rules.as_slice(),
+                )?;
+                eprintln!("[rgrc:time] colorize: {:?}", t_before_colorize.elapsed());
+            } else {
+                colorize(
+                    &mut buffered_stdout,
+                    &mut line_buffered_writer,
+                    rules.as_slice(),
+                )?;
+            }
+        }
+
+        #[cfg(not(feature = "timetrace"))]
+        {
+            // Normal path (no instrumentation): just colorize
             colorize(
                 &mut buffered_stdout,
                 &mut line_buffered_writer,
                 rules.as_slice(),
             )?;
         }
-    }
-
-    #[cfg(not(feature = "timetrace"))]
-    {
-        // Normal path (no instrumentation): just colorize
-        colorize(
-            &mut buffered_stdout,
-            &mut line_buffered_writer,
-            rules.as_slice(),
-        )?;
     }
 
     // Ensure all buffered output is written
