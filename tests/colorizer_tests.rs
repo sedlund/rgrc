@@ -1,4 +1,7 @@
 // Include the colorizer module from src
+#[path = "../src/enhanced_regex.rs"]
+mod enhanced_regex;
+
 #[path = "../src/colorizer.rs"]
 mod colorizer;
 

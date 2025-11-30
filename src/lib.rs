@@ -26,6 +26,7 @@
 pub mod args;
 pub mod buffer;
 pub mod colorizer;
+pub mod enhanced_regex;
 pub mod grc;
 pub mod utils;
 

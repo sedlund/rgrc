@@ -1,6 +1,6 @@
 // Test to verify hybrid regex engine is working correctly
 // Simple patterns should use fast regex::Regex
-// Complex patterns (with lookahead/lookbehind) should use fancy-regex
+// Complex patterns (with lookahead/lookbehind) can use Enhanced or Fancy regex
 
 use rgrc::grc::CompiledRegex;
 
@@ -10,12 +10,13 @@ fn test_simple_pattern_uses_fast_regex() {
     let pattern = r"\bhello\b";
     let compiled = CompiledRegex::new(pattern).expect("Should compile simple pattern");
 
-    // We can't directly test which variant it is without exposing internals,
-    // but we can verify it works correctly
     match compiled {
         CompiledRegex::Fast(_) => {
             // Success! Simple pattern uses fast regex
             println!("✓ Simple pattern uses Fast regex engine");
+        }
+        CompiledRegex::Enhanced(_) => {
+            panic!("Simple pattern should use Fast regex, not Enhanced");
         }
         CompiledRegex::Fancy(_) => {
             panic!("Simple pattern should use Fast regex, not Fancy");
@@ -24,34 +25,42 @@ fn test_simple_pattern_uses_fast_regex() {
 }
 
 #[test]
-fn test_complex_pattern_uses_fancy_regex() {
-    // Pattern with lookahead should compile to Fancy variant
+fn test_complex_pattern_uses_enhanced_or_fancy() {
+    // Pattern with lookahead should compile to Enhanced or Fancy variant
     let pattern = r"hello(?=\d+)";
     let compiled = CompiledRegex::new(pattern).expect("Should compile complex pattern");
 
     match compiled {
         CompiledRegex::Fast(_) => {
-            panic!("Complex pattern with lookahead should use Fancy regex, not Fast");
+            panic!("Complex pattern with lookahead should use Enhanced/Fancy regex, not Fast");
+        }
+        CompiledRegex::Enhanced(_) => {
+            // Success! EnhancedRegex can handle lookahead
+            println!("✓ Lookahead pattern uses Enhanced regex engine");
         }
         CompiledRegex::Fancy(_) => {
-            // Success! Complex pattern uses fancy-regex
-            println!("✓ Complex pattern uses Fancy regex engine");
+            // Also acceptable
+            println!("✓ Lookahead pattern uses Fancy regex engine");
         }
     }
 }
 
 #[test]
-fn test_lookbehind_pattern_uses_fancy_regex() {
-    // Pattern with lookbehind (constant length) should compile to Fancy variant
+fn test_lookbehind_pattern_uses_enhanced_or_fancy() {
+    // Pattern with lookbehind (constant length) should compile to Enhanced or Fancy variant
     let pattern = r"(?<=\d{3})hello";
     let compiled = CompiledRegex::new(pattern).expect("Should compile lookbehind pattern");
 
     match compiled {
         CompiledRegex::Fast(_) => {
-            panic!("Pattern with lookbehind should use Fancy regex, not Fast");
+            panic!("Complex pattern with lookbehind should use Enhanced/Fancy regex, not Fast");
+        }
+        CompiledRegex::Enhanced(_) => {
+            // Success! EnhancedRegex can handle lookbehind
+            println!("✓ Lookbehind pattern uses Enhanced regex engine");
         }
         CompiledRegex::Fancy(_) => {
-            // Success!
+            // Also acceptable
             println!("✓ Lookbehind pattern uses Fancy regex engine");
         }
     }
@@ -65,7 +74,10 @@ fn test_backreference_uses_fancy_regex() {
 
     match compiled {
         CompiledRegex::Fast(_) => {
-            panic!("Pattern with backreference should use Fancy regex, not Fast");
+            panic!("Pattern with backreference should use Fancy/Enhanced regex, not Fast");
+        }
+        CompiledRegex::Enhanced(_) => {
+            panic!("Pattern with backreference should use Fancy regex, not Enhanced");
         }
         CompiledRegex::Fancy(_) => {
             // Success!
@@ -94,8 +106,11 @@ fn test_multiple_simple_patterns() {
             CompiledRegex::Fast(_) => {
                 println!("✓ Pattern '{}' uses Fast regex", pattern);
             }
+            CompiledRegex::Enhanced(_) => {
+                panic!("Simple pattern '{}' should use Fast regex, not Enhanced", pattern);
+            }
             CompiledRegex::Fancy(_) => {
-                panic!("Simple pattern '{}' should use Fast regex", pattern);
+                panic!("Simple pattern '{}' should use Fast regex, not Fancy", pattern);
             }
         }
     }
