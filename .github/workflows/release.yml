@@ -82,13 +82,13 @@ jobs:
       - name: Run tests (Linux)
         # Only run tests on linux targets (avoid executing non-Linux binaries like FreeBSD on Ubuntu)
         if: matrix.os == 'ubuntu-latest' && contains(matrix.target, 'linux')
-        run: cross test --target ${{ matrix.target }} --verbose
+        run: cross test --release --target ${{ matrix.target }} --verbose
       - name: Run tests (macOS/Windows)
         # Only run tests on macOS/Windows runners when building native x86_64
         # test binaries. Running ARM64 binaries on x86_64 runners fails
         # (``This version of %1 is not compatible...`` / os error 216).
         if: matrix.os != 'ubuntu-latest' && startsWith(matrix.target, 'x86_64')
-        run: cargo test --target ${{ matrix.target }} --verbose
+        run: cargo test --release --target ${{ matrix.target }} --verbose
       - name: Build release (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: cross build --release --target ${{ matrix.target }}
@@ -100,8 +100,10 @@ jobs:
         continue-on-error: true
         uses: crazy-max/ghaction-upx@v1
         with:
-          version: v3.96
-          files: target/${{ matrix.target }}/release/${{ matrix.exe }}
+          version: v5.0.2
+          files: |
+            target/${{ matrix.target }}/release/rgrc
+            target/${{ matrix.target }}/release/rgrv
           args: -q --best --lzma
       - name: Package release (non-Windows)
         if: matrix.os != 'windows-latest'
@@ -109,20 +111,20 @@ jobs:
         run: |
           set -euo pipefail
           TARGET=${{ matrix.target }}
-          EXE=${{ matrix.exe }}
+          EXE="${{ matrix.exe }}"
           DIR=target/${{ matrix.target }}/release
           # Ensure the executable exists
           ls -lah "$DIR" || true
           # Create an unversioned archive matching installer expectations:
           # rgrc-<target>.tar.gz
-          tar czf "$DIR/rgrc-${TARGET}.tar.gz" -C "$DIR" "$EXE"
+          tar czf "$DIR/rgrc-${TARGET}.tar.gz" -C "$DIR" rgrc rgrv
 
       - name: Package release (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $TARGET = '${{ matrix.target }}'
-          $EXE = '${{ matrix.exe }}'
+          $EXE = 'rgr*.exe'
           $DIR = "target/${{ matrix.target }}/release"
           # Use ${} to avoid accidental variable-token parsing when followed by punctuation
           Write-Output "Files in ${DIR}`n"

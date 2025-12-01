@@ -537,6 +537,171 @@ pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         .collect()
 }
 
+/// Helper function to format Style info with colors applied
+#[cfg(feature = "debug")]
+fn format_style_info(_style: &Style) -> String {
+    // Return simple representation for display
+    // The style itself will be applied for formatting
+    String::new()
+}
+
+/// Colorize input with debug output showing which rules match each line.
+///
+/// This function applies colorization AND prints debug information to stderr
+/// showing which rules matched each input line.
+///
+/// # Arguments
+///
+/// * `reader` - Input source implementing Read
+/// * `writer` - Output destination implementing Write  
+/// * `rules` - Slice of colorization rules
+///
+/// # Returns
+///
+/// * `Ok(())` - Successfully processed all input
+/// * `Err(Box<dyn Error>)` - I/O or processing error
+#[cfg(feature = "debug")]
+pub fn colorize_regex_with_debug<R, W>(
+    reader: &mut R,
+    writer: &mut W,
+    rules: &[GrcatConfigEntry],
+    debug_level: crate::args::DebugLevel,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    R: std::io::Read,
+    W: std::io::Write,
+{
+    use crate::args::DebugLevel;
+    use std::io::{BufRead, BufReader};
+
+    let buffered_reader = BufReader::new(reader);
+    let mut line_num = 0;
+
+    for line_result in buffered_reader.lines() {
+        let line = line_result?;
+        line_num += 1;
+
+        // Check which rules match and collect debug info
+        let mut matched_rules = Vec::new();
+        for (rule_idx, rule) in rules.iter().enumerate() {
+            if rule.regex.is_match(&line) {
+                matched_rules.push((rule_idx, rule));
+            }
+        }
+
+        // Apply colorization using the standard colorizer
+        // Create a temporary cursor from the line with a newline
+        use std::io::Cursor;
+        let mut line_reader = Cursor::new(format!("{}\n", line).into_bytes());
+        let mut temp_output = Vec::new();
+
+        colorizer::colorize_regex(&mut line_reader, &mut temp_output, rules)?;
+
+        // Write the colored output (no need to add newline, colorize_regex already did)
+        writer.write_all(&temp_output)?;
+
+        // Print debug info to stderr based on debug level
+        match debug_level {
+            DebugLevel::Off => {
+                // No debug output
+            }
+            DebugLevel::Basic => {
+                // Show matched rules with count
+                if matched_rules.is_empty() {
+                    let line_marker_str = format!("[Line {}]", line_num);
+                    eprintln!(
+                        "{} ℹ️  No rules matched",
+                        Style::new().cyan().apply_to(&line_marker_str)
+                    );
+                } else {
+                    let line_marker_str = format!("[Line {}]", line_num);
+                    let line_marker = Style::new().cyan().apply_to(&line_marker_str);
+                    eprintln!(
+                        "{} ✓ Matched {} rule(s): {}",
+                        line_marker,
+                        matched_rules.len(),
+                        matched_rules
+                            .iter()
+                            .map(|(idx, rule)| {
+                                let colors_display = if rule.colors.is_empty() {
+                                    "no-style".to_string()
+                                } else {
+                                    format!("{} style(s)", rule.colors.len())
+                                };
+                                format!("#{} ({})", idx + 1, colors_display)
+                            })
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    );
+                }
+            }
+            DebugLevel::Verbose => {
+                // Show detailed rule and style information
+                let line_marker_str = format!("[Line {}]", line_num);
+                let line_marker = Style::new().cyan().apply_to(&line_marker_str);
+
+                if matched_rules.is_empty() {
+                    eprintln!("{} ℹ️  No rules matched", line_marker);
+                } else {
+                    eprintln!("{} ✓ Matched {} rule(s):", line_marker, matched_rules.len());
+                    for (idx, rule) in matched_rules.iter() {
+                        // Display Rule with bold formatting
+                        let rule_display = format!("Rule #{}: {}", idx + 1, rule.regex.as_str());
+                        eprintln!("  {}", Style::new().bold().apply_to(&rule_display));
+
+                        // Display first matched text with styles applied
+                        if let Some(captures) = rule.regex.captures_from_pos(&line, 0) {
+                            // Get the full match (group 0) and rebuild it with individual groups styled
+                            if let Some(_full_match) = captures.get(0) {
+                                let mut styled_groups = Vec::new();
+                                for group_idx in 1..captures.len() {
+                                    if let Some(cap) = captures.get(group_idx) {
+                                        let text = cap.as_str();
+                                        // Apply style if it exists for this group
+                                        if group_idx <= rule.colors.len() {
+                                            styled_groups.push(format!(
+                                                "{}",
+                                                rule.colors[group_idx - 1].apply_to(text)
+                                            ));
+                                        } else {
+                                            styled_groups.push(text.to_string());
+                                        }
+                                    }
+                                }
+
+                                if !styled_groups.is_empty() {
+                                    let matched_text = styled_groups.join(" ");
+                                    eprintln!(
+                                        "    {}",
+                                        Style::new()
+                                            .dim()
+                                            .apply_to(&format!("Matched: {}", matched_text))
+                                    );
+                                }
+                            }
+                        }
+
+                        if rule.colors.is_empty() {
+                            eprintln!("    {}", Style::new().dim().apply_to("Styles: (none)"));
+                        } else {
+                            eprintln!("    {}:", Style::new().dim().apply_to("Styles"));
+                            for (color_idx, color) in rule.colors.iter().enumerate() {
+                                let _color_display = format_style_info(color);
+                                eprintln!(
+                                    "      {}",
+                                    color.apply_to(&format!("Group {}: applied", color_idx + 1))
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Load colorization rules from embedded configuration.
 /// On first run, writes embedded configs to disk cache, then loads from there.
 #[cfg(feature = "embed-configs")]

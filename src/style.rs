@@ -31,6 +31,7 @@ pub struct Style {
     fg_color: Option<Color>,
     bg_color: Option<Color>,
     bold: bool,
+    dim: bool,
     underlined: bool,
     italic: bool,
     blink: bool,
@@ -58,6 +59,7 @@ impl Style {
             fg_color: None,
             bg_color: None,
             bold: false,
+            dim: false,
             underlined: false,
             italic: false,
             blink: false,
@@ -171,6 +173,14 @@ impl Style {
         self
     }
 
+    #[allow(dead_code)]
+    /// Dim text (low intensity)
+    #[inline]
+    pub const fn dim(mut self) -> Self {
+        self.dim = true;
+        self
+    }
+
     #[inline]
     pub const fn underlined(mut self) -> Self {
         self.underlined = true;
@@ -217,6 +227,9 @@ impl Style {
         // Text attributes
         if self.bold {
             codes.push("1");
+        }
+        if self.dim {
+            codes.push("2");
         }
         if self.italic {
             codes.push("3");
@@ -278,6 +291,7 @@ impl Style {
         self.fg_color.is_none()
             && self.bg_color.is_none()
             && !self.bold
+            && !self.dim
             && !self.underlined
             && !self.italic
             && !self.blink

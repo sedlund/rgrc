@@ -1,6 +1,6 @@
 [package]
 name = "rgrc"
-version = "0.5.1"
+version = "0.6.1"
 edition = "2024"
 license = "MIT"
 description = "Rusty Generic Colouriser"
@@ -33,6 +33,8 @@ timetrace = []
 # Use battle-tested fancy-regex for enhanced regex (supports backreferences, variable-length lookbehind, etc.)
 # Without this feature, uses lightweight EnhancedRegex (supports fixed-length lookahead/lookbehind only)
 fancy-regex = ["dep:fancy-regex"]
+# Enable debug mode for rule debugging output
+debug = []
 
 [profile.release]
 panic = "abort"
@@ -46,6 +48,16 @@ debug = 1
 [profile.minimal]
 inherits = "release"
 opt-level = "z"
+
+[[bin]]
+name = "rgrc"
+path = "src/main.rs"
+doc = true
+
+[[bin]]
+name = "rgrv"
+path = "src/bin/rgrv.rs"
+doc = true
 
 [package.metadata.deb]
 maintainer = "lazywalker <lazywalkerz@gmail.com>"
@@ -63,6 +75,7 @@ priority = "optional"
 assets = [
 	# `target/release` path is special and will be replaced by cargo-deb at build time
 	["target/release/rgrc", "usr/bin/", "755"],
+	["target/release/rgrv", "usr/bin/", "755"],
 	["doc/rgrc.1.gz", "usr/share/man/man1/", "644"],
 	["etc/rgrc.conf", "etc/", "644"],
 	["share/conf.*", "usr/share/rgrc/", "644"],

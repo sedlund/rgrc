@@ -149,7 +149,7 @@ pub fn should_use_colorization_for_command_supported(command: &str) -> bool {
 pub const PSEUDO_NO_COLOR: &[&str] = &["ls"];
 
 /// Check whether a pseudo_command should be excluded from colorization.
-/// 
+///
 /// Returns `true` if:
 /// 1. The command is just the command name alone (e.g., "ls")
 /// 2. The command is followed by any non-flag arguments (e.g., "ls /home", "ls ~", "ls .")
@@ -264,7 +264,7 @@ mod tests {
     fn test_pseudo_command_excluded() {
         // Command alone should be excluded
         assert!(pseudo_command_excluded("ls"));
-        
+
         // Command with path arguments should be excluded
         assert!(pseudo_command_excluded("ls ~"));
         assert!(pseudo_command_excluded("ls ~/"));
@@ -273,22 +273,22 @@ mod tests {
         assert!(pseudo_command_excluded("ls ./"));
         assert!(pseudo_command_excluded("ls .."));
         assert!(pseudo_command_excluded("ls /"));
-        
+
         // Command with filename/non-flag arguments should be excluded
         assert!(pseudo_command_excluded("ls somefile"));
         assert!(pseudo_command_excluded("ls file.txt"));
-        
+
         // Command with flags should NOT be excluded
         assert!(!pseudo_command_excluded("ls -l"));
         assert!(!pseudo_command_excluded("ls -l /home"));
         assert!(!pseudo_command_excluded("ls -la"));
         assert!(!pseudo_command_excluded("ls --long"));
         assert!(!pseudo_command_excluded("ls --long /home"));
-        
+
         // Other commands should not be excluded
         assert!(!pseudo_command_excluded("df"));
         assert!(!pseudo_command_excluded("df /home"));
-        
+
         // Empty string should not be excluded
         assert!(!pseudo_command_excluded(""));
     }
