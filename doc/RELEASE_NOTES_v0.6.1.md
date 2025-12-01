@@ -4,7 +4,7 @@
 
 ## Overview
 
-Version 0.6.1 focuses on improving regex compatibility and robustness and on providing a standalone validator for configuration files. This release completes and stabilizes the EnhancedRegex preprocessing pipeline, adds the `rgrv` validation tool, increases test coverage, and cleans up lints and minor issues.
+Version 0.6.1 focuses on improving regex compatibility and robustness and on providing a standalone validator for configuration files. This release completes and stabilizes the EnhancedRegex preprocessing pipeline, adds the `rgrv` validation tool, and a debug mode enabled with the `--features=debug` flag.
 
 ## Key Improvements
 
@@ -25,6 +25,18 @@ Version 0.6.1 focuses on improving regex compatibility and robustness and on pro
   - `rgrv grc [PATH]` — validate `grc.conf`
   - `rgrv conf [PATH ...]` — validate one or more `conf.*` files
 - Improvements: Supports legacy compact one-line format `pattern<TAB|space>styles` and normalizes hyphenated style names to underscores for validation (e.g. `bright-red` → `bright_red`).
+- Examples:
+```bash
+# Validate a single conf file
+rgrv conf share/conf.ping
+
+# Validate multiple conf files
+rgrv conf share/conf.*
+
+# Validate grc.conf
+rgrv grc /etc/rgrc/rgrc.conf
+```
+
 
 ### Tests and quality
 
@@ -50,18 +62,26 @@ Version 0.6.1 focuses on improving regex compatibility and robustness and on pro
 
 ## Packaging / Distribution notes
 
-- Packaging maintainers: use `--profile minimal` to minimize binary size for distribution. If full regex compatibility is required (backreferences, variable-length lookbehind), enable the `fancy-regex` feature.
-- Homebrew: formula updates exist under `homebrew-rgrc/Formula/rgrc.rb` (I can open a PR if desired).
 
-## Usage examples
+ ## Debug feature and `--debug` usage
 
-```bash
-# Validate a single conf file
-rgrv conf share/conf.ping
+ - Build-time feature: `debug` — enable extra diagnostics and rule-level debugging output. Enable when building with Cargo:
 
-# Validate multiple conf files
-rgrv conf share/conf.*
+ ```bash
+ cargo build --features debug --release
+ ```
 
-# Validate grc.conf
-rgrv grc /etc/rgrc/rgrc.conf
-```
+ - Runtime flag: `--debug` (only active when the `debug` feature is enabled). Accepts an optional level:
+   - `--debug` or `--debug=1` — basic debug output (matched rule counts and styles)
+   - `--debug=2` — verbose debug output (regex patterns, captures, per-rule details)
+   - `--debug=0` — explicitly disable debug output
+
+ Examples:
+
+ ```bash
+ # Run rgrc with basic debug info (build with debug feature)
+ cargo run --features debug -- --debug=1 ls
+
+ # Run installed binary with verbose debug
+ rgrc --debug=2 ping google.com
+ ```
