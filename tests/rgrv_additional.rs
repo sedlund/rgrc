@@ -5,6 +5,12 @@ use std::process::Command;
 use tempfile::TempDir;
 
 fn get_rgrv_binary() -> PathBuf {
+    // Prefer the cargo-provided binary path when running integration tests.
+    if let Ok(bin) = std::env::var("CARGO_BIN_EXE_rgrv") {
+        return PathBuf::from(bin);
+    }
+
+    // Fallback: compute path relative to the current test executable.
     let mut path = std::env::current_exe().unwrap();
     path.pop(); // remove test exe name
     path.pop(); // remove deps
