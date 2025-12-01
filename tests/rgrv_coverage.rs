@@ -107,7 +107,7 @@ fn test_unknown_command() {
 fn test_validate_valid_grc_conf() {
     let temp_dir = TempDir::new().unwrap();
     let grc_conf = temp_dir.path().join("test_grc.conf");
-    
+
     // Create a valid grc.conf
     let mut file = fs::File::create(&grc_conf).unwrap();
     writeln!(file, "# Test grc configuration").unwrap();
@@ -135,7 +135,7 @@ fn test_validate_valid_grc_conf() {
 fn test_validate_grc_conf_invalid_regex() {
     let temp_dir = TempDir::new().unwrap();
     let grc_conf = temp_dir.path().join("test_grc.conf");
-    
+
     // Create grc.conf with invalid regex
     let mut file = fs::File::create(&grc_conf).unwrap();
     writeln!(file, "# Invalid regex test").unwrap();
@@ -159,7 +159,7 @@ fn test_validate_grc_conf_invalid_regex() {
 fn test_validate_grc_conf_missing_reference() {
     let temp_dir = TempDir::new().unwrap();
     let grc_conf = temp_dir.path().join("test_grc.conf");
-    
+
     // Create grc.conf with missing config reference
     let mut file = fs::File::create(&grc_conf).unwrap();
     writeln!(file, "# Missing reference test").unwrap();
@@ -183,7 +183,7 @@ fn test_validate_grc_conf_missing_reference() {
 fn test_validate_grc_conf_empty_after_pattern() {
     let temp_dir = TempDir::new().unwrap();
     let grc_conf = temp_dir.path().join("test_grc.conf");
-    
+
     // Create grc.conf with empty line after pattern
     let mut file = fs::File::create(&grc_conf).unwrap();
     writeln!(file, "^ping").unwrap();
@@ -204,7 +204,7 @@ fn test_validate_grc_conf_empty_after_pattern() {
 fn test_validate_grc_conf_comment_after_pattern() {
     let temp_dir = TempDir::new().unwrap();
     let grc_conf = temp_dir.path().join("test_grc.conf");
-    
+
     // Create grc.conf with comment line after pattern
     let mut file = fs::File::create(&grc_conf).unwrap();
     writeln!(file, "^ping").unwrap();
@@ -227,7 +227,7 @@ fn test_validate_grc_conf_comment_after_pattern() {
 fn test_validate_valid_conf_file() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create a valid conf file
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, "# Test configuration").unwrap();
@@ -252,7 +252,7 @@ fn test_validate_valid_conf_file() {
 fn test_validate_conf_file_invalid_regex() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with invalid regex
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, "# Invalid regex test").unwrap();
@@ -275,7 +275,7 @@ fn test_validate_conf_file_invalid_regex() {
 fn test_validate_conf_file_missing_style() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with missing style
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, "# Missing style test").unwrap();
@@ -298,7 +298,7 @@ fn test_validate_conf_file_missing_style() {
 fn test_validate_conf_file_unknown_style() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with unknown style
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, r"^\d+ unknown_style").unwrap();
@@ -320,7 +320,7 @@ fn test_validate_conf_file_unknown_style() {
 fn test_validate_conf_file_multiple_unknown_styles() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with multiple unknown styles
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, r"^\d+ red unknown1 blue unknown2").unwrap();
@@ -340,7 +340,7 @@ fn test_validate_conf_file_multiple_unknown_styles() {
 fn test_validate_conf_file_bright_colors() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with bright colors
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, r"^\d+ bright-red bright-green bright-blue").unwrap();
@@ -360,7 +360,7 @@ fn test_validate_conf_file_bright_colors() {
 fn test_validate_conf_file_background_colors() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with background colors
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, r"^\d+ on_red on_blue on_green").unwrap();
@@ -380,7 +380,7 @@ fn test_validate_conf_file_background_colors() {
 fn test_validate_conf_file_text_attributes() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with text attributes
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, r"^\d+ bold italic underline").unwrap();
@@ -401,7 +401,7 @@ fn test_validate_conf_file_text_attributes() {
 fn test_validate_conf_file_tab_separator() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with tab separator
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, "^\\d+\tred bold").unwrap();
@@ -421,7 +421,7 @@ fn test_validate_conf_file_tab_separator() {
 fn test_validate_conf_file_comments() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with comments
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, "# This is a comment").unwrap();
@@ -444,7 +444,7 @@ fn test_validate_conf_file_comments() {
 fn test_validate_conf_file_empty_lines() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with empty lines
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, "").unwrap();
@@ -469,12 +469,12 @@ fn test_validate_multiple_conf_files() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file1 = temp_dir.path().join("conf.test1");
     let conf_file2 = temp_dir.path().join("conf.test2");
-    
+
     // Create two valid conf files
     let mut file1 = fs::File::create(&conf_file1).unwrap();
     writeln!(file1, r"^\d+ red").unwrap();
     drop(file1);
-    
+
     let mut file2 = fs::File::create(&conf_file2).unwrap();
     writeln!(file2, r"^\w+ blue").unwrap();
     drop(file2);
@@ -497,12 +497,12 @@ fn test_validate_multiple_conf_files_with_errors() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file1 = temp_dir.path().join("conf.test1");
     let conf_file2 = temp_dir.path().join("conf.test2");
-    
+
     // Create one valid and one invalid conf file
     let mut file1 = fs::File::create(&conf_file1).unwrap();
     writeln!(file1, r"^\d+ red").unwrap();
     drop(file1);
-    
+
     let mut file2 = fs::File::create(&conf_file2).unwrap();
     writeln!(file2, r"^\w+ unknown_style").unwrap();
     drop(file2);
@@ -563,7 +563,9 @@ fn test_validate_all_command() {
 
     // Will succeed or fail depending on default files
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Validating grc.conf") || stdout.contains("Validating color configuration"));
+    assert!(
+        stdout.contains("Validating grc.conf") || stdout.contains("Validating color configuration")
+    );
 }
 
 /// Test conf file with complex regex patterns
@@ -571,12 +573,20 @@ fn test_validate_all_command() {
 fn test_validate_conf_file_complex_regex() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with complex regex patterns
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, r"^\d{{1,3}}\.\d{{1,3}}\.\d{{1,3}}\.\d{{1,3}} cyan").unwrap();
-    writeln!(file, r"([A-Za-z0-9+/]{{4}})*([A-Za-z0-9+/]{{2}}==|[A-Za-z0-9+/]{{3}}=)? yellow").unwrap();
-    writeln!(file, r"(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){{3}} green").unwrap();
+    writeln!(
+        file,
+        r"([A-Za-z0-9+/]{{4}})*([A-Za-z0-9+/]{{2}}==|[A-Za-z0-9+/]{{3}}=)? yellow"
+    )
+    .unwrap();
+    writeln!(
+        file,
+        r"(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){{3}} green"
+    )
+    .unwrap();
     drop(file);
 
     let output = Command::new(get_rgrv_binary())
@@ -593,7 +603,7 @@ fn test_validate_conf_file_complex_regex() {
 fn test_validate_grc_conf_with_comments() {
     let temp_dir = TempDir::new().unwrap();
     let grc_conf = temp_dir.path().join("test_grc.conf");
-    
+
     // Create grc.conf with comments between entries
     let mut file = fs::File::create(&grc_conf).unwrap();
     writeln!(file, "# First entry").unwrap();
@@ -620,7 +630,7 @@ fn test_validate_grc_conf_with_comments() {
 fn test_validate_empty_conf_file() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create empty conf file
     fs::File::create(&conf_file).unwrap();
 
@@ -639,7 +649,7 @@ fn test_validate_empty_conf_file() {
 fn test_validate_conf_file_only_comments() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with only comments
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, "# Comment 1").unwrap();
@@ -661,7 +671,7 @@ fn test_validate_conf_file_only_comments() {
 fn test_validate_conf_file_mixed_entries() {
     let temp_dir = TempDir::new().unwrap();
     let conf_file = temp_dir.path().join("conf.test");
-    
+
     // Create conf file with mixed entries
     let mut file = fs::File::create(&conf_file).unwrap();
     writeln!(file, r"^\d+ red").unwrap();
