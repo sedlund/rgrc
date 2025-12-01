@@ -95,8 +95,9 @@ jobs:
       - name: Build release (macOS/Windows)
         if: matrix.os != 'ubuntu-latest'
         run: cargo build --release --target ${{ matrix.target }}
-      - name: Run UPX
-        # Upx may not support some platforms. Ignore the errors
+      - name: Run UPX (non-Windows)
+        # UPX may not support some platforms; ignore errors
+        if: matrix.os != 'windows-latest'
         continue-on-error: true
         uses: crazy-max/ghaction-upx@v1
         with:
@@ -104,6 +105,18 @@ jobs:
           files: |
             target/${{ matrix.target }}/release/rgrc
             target/${{ matrix.target }}/release/rgrv
+          args: -q --best --lzma
+
+      - name: Run UPX (Windows)
+        # Use .exe paths on Windows runners
+        if: matrix.os == 'windows-latest'
+        continue-on-error: true
+        uses: crazy-max/ghaction-upx@v1
+        with:
+          version: v5.0.2
+          files: |
+            target\${{ matrix.target }}\release\rgrc.exe
+            target\${{ matrix.target }}\release\rgrv.exe
           args: -q --best --lzma
       - name: Package release (non-Windows)
         if: matrix.os != 'windows-latest'
