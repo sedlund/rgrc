@@ -19,19 +19,19 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            exe: rgrc rgrv
+            exe: rgrc
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            exe: rgrc rgrv
+            exe: rgrc
           - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
-            exe: rgrc rgrv
+            exe: rgrc
           - os: ubuntu-latest
             target: i686-unknown-linux-musl
-            exe: rgrc rgrv
+            exe: rgrc
           - os: ubuntu-latest
             target: arm-unknown-linux-musleabihf
-            exe: rgrc rgrv
+            exe: rgrc
           # MIPS targets are not available in stable Rust
           # - os: ubuntu-latest
           #   target: mips-unknown-linux-gnu
@@ -53,22 +53,22 @@ jobs:
           #   exe: rgrc
           - os: macos-latest
             target: x86_64-apple-darwin
-            exe: rgrc rgrv
+            exe: rgrc
           - os: macos-latest
             target: aarch64-apple-darwin
-            exe: rgrc rgrv
+            exe: rgrc
           - os: ubuntu-latest
             target: x86_64-unknown-freebsd
-            exe: rgrc rgrv
+            exe: rgrc
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            exe: rgrc.exe rgrv.exe
+            exe: rgrc.exe
           - os: windows-latest
             target: i686-pc-windows-msvc
-            exe: rgrc.exe rgrv.exe
+            exe: rgrc.exe
           - os: windows-latest
             target: aarch64-pc-windows-msvc
-            exe: rgrc.exe rgrv.exe
+            exe: rgrc.exe
     steps:
       - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
@@ -101,7 +101,7 @@ jobs:
         uses: crazy-max/ghaction-upx@v1
         with:
           version: v5.0.2
-          files: target/${{ matrix.target }}/release/${{ matrix.exe }}
+          files: target/${{ matrix.target }}/release/rgr?
           args: -q --best --lzma
       - name: Package release (non-Windows)
         if: matrix.os != 'windows-latest'
@@ -109,7 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           TARGET=${{ matrix.target }}
-          EXE=${{ matrix.exe }}
+          EXE="rgr?"
           DIR=target/${{ matrix.target }}/release
           # Ensure the executable exists
           ls -lah "$DIR" || true
@@ -122,7 +122,7 @@ jobs:
         shell: pwsh
         run: |
           $TARGET = '${{ matrix.target }}'
-          $EXE = '${{ matrix.exe }}'
+          $EXE = 'rgr*.exe'
           $DIR = "target/${{ matrix.target }}/release"
           # Use ${} to avoid accidental variable-token parsing when followed by punctuation
           Write-Output "Files in ${DIR}`n"
