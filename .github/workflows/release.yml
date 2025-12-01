@@ -19,19 +19,19 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            exe: rgrc
+            exe: rgrc rgrv
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            exe: rgrc
+            exe: rgrc rgrv
           - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
-            exe: rgrc
+            exe: rgrc rgrv
           - os: ubuntu-latest
             target: i686-unknown-linux-musl
-            exe: rgrc
+            exe: rgrc rgrv
           - os: ubuntu-latest
             target: arm-unknown-linux-musleabihf
-            exe: rgrc
+            exe: rgrc rgrv
           # MIPS targets are not available in stable Rust
           # - os: ubuntu-latest
           #   target: mips-unknown-linux-gnu
@@ -53,22 +53,22 @@ jobs:
           #   exe: rgrc
           - os: macos-latest
             target: x86_64-apple-darwin
-            exe: rgrc
+            exe: rgrc rgrv
           - os: macos-latest
             target: aarch64-apple-darwin
-            exe: rgrc
+            exe: rgrc rgrv
           - os: ubuntu-latest
             target: x86_64-unknown-freebsd
-            exe: rgrc
+            exe: rgrc rgrv
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            exe: rgrc.exe
+            exe: rgrc.exe rgrv.exe
           - os: windows-latest
             target: i686-pc-windows-msvc
-            exe: rgrc.exe
+            exe: rgrc.exe rgrv.exe
           - os: windows-latest
             target: aarch64-pc-windows-msvc
-            exe: rgrc.exe
+            exe: rgrc.exe rgrv.exe
     steps:
       - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
@@ -82,13 +82,13 @@ jobs:
       - name: Run tests (Linux)
         # Only run tests on linux targets (avoid executing non-Linux binaries like FreeBSD on Ubuntu)
         if: matrix.os == 'ubuntu-latest' && contains(matrix.target, 'linux')
-        run: cross test --target ${{ matrix.target }} --verbose
+        run: cross test --release --target ${{ matrix.target }} --verbose
       - name: Run tests (macOS/Windows)
         # Only run tests on macOS/Windows runners when building native x86_64
         # test binaries. Running ARM64 binaries on x86_64 runners fails
         # (``This version of %1 is not compatible...`` / os error 216).
         if: matrix.os != 'ubuntu-latest' && startsWith(matrix.target, 'x86_64')
-        run: cargo test --target ${{ matrix.target }} --verbose
+        run: cargo test --release --target ${{ matrix.target }} --verbose
       - name: Build release (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: cross build --release --target ${{ matrix.target }}
