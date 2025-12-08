@@ -1066,7 +1066,14 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                     "colours" => {
                         // Parse comma-separated style keywords into Style vector
                         // Example: "bold red,yellow,cyan" → [Style::new().bold().red(), Style::new().yellow(), Style::new().cyan()]
-                        colors = Some(styles_from_str(value).unwrap());
+                        match styles_from_str(value) {
+                            Ok(styles) => colors = Some(styles),
+                            Err(e) => {
+                                eprintln!("Error: Invalid style in configuration: {}", e);
+                                eprintln!("Skipping this rule due to style error.");
+                                continue;
+                            }
+                        }
                     }
                     "count" => {
                         // Parse count value: once/more/stop
