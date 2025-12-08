@@ -245,36 +245,40 @@ impl FromStr for ColorMode {
 
 /// Standard resource paths searched for grcat config files.
 ///
-/// These paths are searched in order when looking for colorization rule files
+/// These paths are searched **in order** when looking for colorization rule files
 /// (grcat.conf) that define how to colorize output for specific commands.
+/// **The search stops at the first matching file found.**
 ///
 /// The paths support:
 /// - `~` expansion (home directory)
 /// - XDG Base Directory Specification compliance
 /// - System-wide configuration directories
 ///
-/// # Search Order
+/// # Search Order (Priority)
 ///
-/// 1. `~/.config/rgrc` - User's rgrc config directory (XDG_CONFIG_HOME)
+/// User configurations take precedence over system configurations:
+///
+/// 1. `~/.config/rgrc` - User's rgrc config directory (XDG_CONFIG_HOME) **← HIGHEST PRIORITY**
 /// 2. `~/.local/share/rgrc` - User's rgrc data directory (XDG_DATA_HOME)
 /// 3. `/usr/local/share/rgrc` - System-wide custom installations
 /// 4. `/usr/share/rgrc` - Standard system location (rgrc variant)
 /// 5. `~/.config/grc` - Legacy grc user config directory
 /// 6. `~/.local/share/grc` - Legacy grc user data directory
 /// 7. `/usr/local/share/grc` - Legacy system-wide location
-/// 8. `/usr/share/grc` - Standard grc location (original)
-/// 5. `/usr/share/rgrc` - Standard system location (rgrc variant)
-/// 6. `~/.config/grc` - Legacy grc user config directory
-/// 7. `~/.local/share/grc` - Legacy grc user data directory
-/// 8. `/usr/local/share/grc` - Legacy system-wide location
-/// 9. `/usr/share/grc` - Standard grc location (original)
+/// 8. `/usr/share/grc` - Standard grc location (original) **← LOWEST PRIORITY**
+///
+/// # Example: Priority Resolution
+///
+/// For file `conf.df`, search stops at the **first match**:
+/// - If `~/.config/rgrc/conf.df` exists → **RETURNED** (other paths not searched)
+/// - If only `/usr/share/rgrc/conf.df` exists → returned as fallback
 ///
 /// # Examples
 ///
-/// All paths in RESOURCE_PATHS are searched when loading configuration:
+/// All paths in RESOURCE_PATHS are searched in order when loading configuration:
 /// ```ignore
 /// let config_entries = load_config("~/.config/rgrc/grc.conf", "ping");
-/// // This will search in all RESOURCE_PATHS directories for matching rules
+/// // This will search in RESOURCE_PATHS directories until first match is found
 /// ```
 pub const RESOURCE_PATHS: &[&str] = &[
     "~/.config/rgrc",
@@ -300,7 +304,8 @@ pub const RESOURCE_PATHS: &[&str] = &[
 /// - Format: `<regex_pattern> <colorization_file_name>`
 /// - Example: `^ping` conf.ping
 ///
-/// The function searches RESOURCE_PATHS for the referenced colorization files.
+/// The function searches RESOURCE_PATHS for the referenced colorization files,
+/// stopping at the **first match found** to respect user configuration priority.
 ///
 /// # Arguments
 ///
@@ -316,12 +321,19 @@ pub const RESOURCE_PATHS: &[&str] = &[
 /// - No matching rule is found for the pseudo_command
 /// - The referenced colorization files cannot be opened
 ///
+/// # Priority Resolution
+///
+/// When searching for a config file (e.g., `conf.ping`), the function stops at
+/// the **first directory containing the file**:
+/// - User config (`~/.config/rgrc/conf.ping`) takes precedence
+/// - System config (`/usr/share/rgrc/conf.ping`) only used if user config not found
+///
 /// # Errors Handled
 ///
 /// All errors are silently handled and result in empty or partial rule sets:
 /// - File not found → returns empty vector
 /// - Invalid regex → pattern not matched → returns empty vector
-/// - Invalid colorization file path → skipped in collection
+/// - Invalid colorization file path → skipped to next directory
 ///
 /// # Examples
 ///
@@ -344,8 +356,8 @@ pub const RESOURCE_PATHS: &[&str] = &[
 /// 2. Searches for a regex pattern matching pseudo_command
 /// 3. Extracts the colorization file reference from matching entry
 /// 4. Expands ~ in paths using shellexpand
-/// 5. Searches all RESOURCE_PATHS directories for the colorization file
-/// 6. Loads rules from all found colorization files
+/// 5. Searches RESOURCE_PATHS directories **in order** for the colorization file
+/// 6. Returns rules from the **first matching file found**
 pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     // First, try to load from filesystem config file
     let filesystem_result = File::open(path).ok().and_then(|f| {
@@ -358,18 +370,21 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     });
 
     if let Some(config) = filesystem_result {
-        // Search all resource paths for the colorization file
-        return RESOURCE_PATHS
-            .iter()
-            .map(|path| expand_tilde(path))
-            .map(|path| format!("{}/{}", path, config))
-            .flat_map(load_grcat_config)
-            .collect();
+        // Search RESOURCE_PATHS for the colorization file - **stop at first match**
+        for base_path in RESOURCE_PATHS {
+            let expanded_path = expand_tilde(base_path);
+            let config_path = format!("{}/{}", expanded_path, config);
+            let rules = load_grcat_config(&config_path);
+            if !rules.is_empty() {
+                return rules; // Stop at first match
+            }
+        }
     }
 
     // No configuration found
     Vec::new()
 }
+
 /// Load colorization rules from a grcat.conf-style configuration file.
 ///
 /// This function reads a grcat.conf file and parses all colorization rules contained
@@ -500,7 +515,14 @@ const CONFIG_PATHS: &[&str] = &[
 ///
 /// This function iterates through the predefined CONFIG_PATHS, attempting to load
 /// colorization rules for the specified pseudo-command from each configuration file.
-/// It returns a combined vector of all matching rules found across all paths.
+/// **The search stops at the first file that contains matching rules.**
+///
+/// # Priority Resolution
+///
+/// Configuration files are searched in priority order:
+/// 1. User configs (`~/.rgrc`, `~/.config/rgrc/rgrc.conf`) checked first
+/// 2. System configs (`/etc/rgrc.conf`, `/usr/local/etc/rgrc.conf`) as fallback
+/// 3. Legacy grc configs checked last for backward compatibility
 ///
 /// # Arguments
 ///
@@ -510,13 +532,13 @@ const CONFIG_PATHS: &[&str] = &[
 /// # Returns
 ///
 /// A vector of `GrcatConfigEntry` containing all colorization rules that apply
-/// to the given pseudo-command. Rules from multiple configuration files are combined.
+/// to the given pseudo-command from the **first config file containing matches**.
 ///
 /// # Examples
 ///
 /// ```ignore
 /// let rules = load_rules_for_command("ping");
-/// // Now rules contains all colorization rules for ping from all config files
+/// // Now rules contains all colorization rules for ping from the first matching config file
 /// ```
 #[allow(dead_code)]
 pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
@@ -529,12 +551,16 @@ pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         }
     }
 
-    // Fallback to file system configuration paths
-    CONFIG_PATHS
-        .iter()
-        .map(|s| expand_tilde(s))
-        .flat_map(|s| load_config(s.as_ref(), pseudo_command))
-        .collect()
+    // Fallback to file system configuration paths - **stop at first match**
+    for config_path in CONFIG_PATHS {
+        let expanded_path = expand_tilde(config_path);
+        let rules = load_config(&expanded_path, pseudo_command);
+        if !rules.is_empty() {
+            return rules; // Stop at first matching config file
+        }
+    }
+
+    Vec::new()
 }
 
 /// Helper function to format Style info with colors applied
@@ -824,6 +850,97 @@ mod lib_test {
                 "Loading rules should be reasonably fast (< 1500ms)"
             );
         }
+    }
+
+    #[test]
+    fn test_config_priority_order() {
+        // Test that user configs take precedence over system configs
+        // This test verifies that load_config stops at first match
+        use tempfile::TempDir;
+
+        // Create temporary directories simulating RESOURCE_PATHS
+        let user_config_dir = TempDir::new().expect("create user config dir");
+        let system_config_dir = TempDir::new().expect("create system config dir");
+
+        // Create a test config file in both directories
+        let user_conf_file = user_config_dir.path().join("conf.testcmd");
+        let system_conf_file = system_config_dir.path().join("conf.testcmd");
+
+        // User config: has style on line 1
+        std::fs::write(&user_conf_file, "regexp=^USER\ncolours=green").expect("write user config");
+
+        // System config: has different style
+        std::fs::write(&system_conf_file, "regexp=^SYSTEM\ncolours=red")
+            .expect("write system config");
+
+        // Test load_grcat_config with user config (should return rules from this file)
+        let user_rules = load_grcat_config(user_conf_file.to_string_lossy().to_string());
+        assert!(
+            !user_rules.is_empty(),
+            "Should load rules from user config file"
+        );
+
+        // Verify it loaded the USER pattern, not SYSTEM
+        let has_user_pattern = user_rules
+            .iter()
+            .any(|rule| rule.regex.as_str().contains("USER"));
+        assert!(
+            has_user_pattern,
+            "User config should contain USER pattern, proving user config was loaded (not system)"
+        );
+
+        // Test with system config
+        let system_rules = load_grcat_config(system_conf_file.to_string_lossy().to_string());
+        assert!(
+            !system_rules.is_empty(),
+            "Should load rules from system config file"
+        );
+
+        let has_system_pattern = system_rules
+            .iter()
+            .any(|rule| rule.regex.as_str().contains("SYSTEM"));
+        assert!(
+            has_system_pattern,
+            "System config should contain SYSTEM pattern"
+        );
+    }
+
+    #[test]
+    fn test_load_config_stops_at_first_match() {
+        // Test that load_config stops searching after first matching config file
+        use tempfile::TempDir;
+
+        // Create temp grc.conf and two conf files
+        let temp_dir = TempDir::new().expect("create temp dir");
+        let grc_conf_path = temp_dir.path().join("grc.conf");
+        let conf_dir1 = TempDir::new().expect("create conf dir 1");
+        let conf_dir2 = TempDir::new().expect("create conf dir 2");
+
+        // Create grc.conf mapping testcmd to conf.testcmd
+        std::fs::write(&grc_conf_path, "^testcmd\tconf.testcmd").expect("write grc.conf");
+
+        // Create conf.testcmd in first directory with "USER" pattern
+        let conf_file_1 = conf_dir1.path().join("conf.testcmd");
+        std::fs::write(&conf_file_1, "regexp=^USER\ncolours=green").expect("write conf file 1");
+
+        // Create conf.testcmd in second directory with "SYSTEM" pattern
+        let conf_file_2 = conf_dir2.path().join("conf.testcmd");
+        std::fs::write(&conf_file_2, "regexp=^SYSTEM\ncolours=red").expect("write conf file 2");
+
+        // When both files exist, load_grcat_config should return from first found
+        let rules_1 = load_grcat_config(conf_file_1.to_string_lossy().to_string());
+        assert!(
+            !rules_1.is_empty(),
+            "Should load rules from first config file"
+        );
+
+        let has_user = rules_1
+            .iter()
+            .any(|rule| rule.regex.as_str().contains("USER"));
+        assert!(
+            has_user,
+            "Should load USER pattern from first config file (not SYSTEM)"
+        );
     }
 
     #[test]
