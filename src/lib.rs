@@ -376,8 +376,8 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
             let config_path = format!("{}/{}", expanded_path, config);
             // Use file_exists_and_parse to distinguish "file exists but empty" from "file not found"
             match file_exists_and_parse(&config_path) {
-                Some(rules) => return rules,           // File found (even if empty) - STOP
-                None => continue,                      // File not found - keep searching
+                Some(rules) => return rules, // File found (even if empty) - STOP
+                None => continue,            // File not found - keep searching
             }
         }
     }
@@ -387,12 +387,12 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
 }
 
 /// Check if a file exists and parse it for colorization rules.
-/// 
+///
 /// Returns:
 /// - `Some(rules)` if file exists (may be empty if file is empty)
 /// - `None` if file does not exist
-/// 
-/// This distinguishes between "file doesn't exist" (None) and 
+///
+/// This distinguishes between "file doesn't exist" (None) and
 /// "file exists but has no rules" (Some([])).
 fn file_exists_and_parse(filename: &str) -> Option<Vec<GrcatConfigEntry>> {
     // Try to open the file
@@ -1013,7 +1013,8 @@ mod lib_test {
         std::fs::write(&user_conf_file, "").expect("write empty user config");
 
         // System config: has rules
-        std::fs::write(&system_conf_file, "regexp=^SYSTEM\ncolours=red").expect("write system config");
+        std::fs::write(&system_conf_file, "regexp=^SYSTEM\ncolours=red")
+            .expect("write system config");
 
         // The critical test: load_grcat_config with empty file should return empty
         // and NOT continue searching the next directory
@@ -1025,10 +1026,7 @@ mod lib_test {
 
         // Verify system config has rules (to prove it COULD have been loaded)
         let rules_system = load_grcat_config(system_conf_file.to_string_lossy().to_string());
-        assert!(
-            !rules_system.is_empty(),
-            "System config should have rules"
-        );
+        assert!(!rules_system.is_empty(), "System config should have rules");
 
         // Verify it has SYSTEM pattern
         let has_system = rules_system
