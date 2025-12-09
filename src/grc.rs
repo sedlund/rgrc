@@ -1063,7 +1063,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                             }
                         }
                     }
-                    "colours" => {
+                    "colours" | "colors" => {
                         // Parse comma-separated style keywords into Style vector
                         // Example: "bold red,yellow,cyan" → [Style::new().bold().red(), Style::new().yellow(), Style::new().cyan()]
                         match styles_from_str(value) {
@@ -1071,7 +1071,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                             Err(e) => {
                                 eprintln!("Error: Invalid style in configuration: {}", e);
                                 eprintln!("Skipping this rule due to style error.");
-                                continue;
+                                break;
                             }
                         }
                     }

@@ -478,13 +478,12 @@ fn grcatreader_parses_count_replace_and_skip_values() {
 }
 
 #[test]
-#[should_panic]
-fn grcatreader_invalid_colours_panics() {
-    // colours line contains an invalid token -> styles_from_str unwrap will panic
+fn grcatreader_invalid_colours_moving_on() {
+    // colours line contains an invalid token -> styles_from_str unwrap will be ignored
     let input = "regexp=^ERR\ncolours=not_a_known_color\n\n";
     let reader = std::io::Cursor::new(input);
     let mut it = GrcatConfigReader::new(std::io::BufReader::new(reader).lines());
-    // calling next should panic when attempting to parse invalid colours
+    // calling next should move on when attempting to parse invalid colours
     let _ = it.next();
 }
 
