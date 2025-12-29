@@ -14,13 +14,13 @@ A fast, Rust-based command-line tool that colorizes the output of other commands
 
 ## Features
 
-- 🚀 **Fast**: 10x faster than original grc
-- 🎨 **Rich Colorization**: ANSI colors with count/replace support
-- 🔧 **Compatible**: Works with existing grc configuration files
-- 🐚 **Shell Integration**: Auto-generates aliases
-- 📖 **80+ Commands**: Pre-configured for common tools
-- 🔍 **Smart Regex**: Hybrid engine with optional fancy-regex support
-- 📦 **Lightweight**: Minimal dependencies (2 core deps)
+- **Fast**: 10x faster than original grc
+- **Rich Colorization**: ANSI colors with count/replace support
+- **Compatible**: Works with existing grc configuration files
+- **Shell Integration**: Auto-generates aliases
+- **80+ Commands**: Pre-configured for common tools
+- **Smart Regex**: Hybrid engine with optional fancy-regex support
+- **Lightweight**: Minimal dependencies (2 core deps)
 
 ## Quick Start
 
