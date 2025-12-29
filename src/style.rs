@@ -247,6 +247,7 @@ impl Style {
         // Foreground color
         if let Some(fg) = self.fg_color {
             codes.push(match fg {
+                Color::Black if self.bright => "90",
                 Color::Black => "30",
                 Color::Red if self.bright => "91",
                 Color::Green if self.bright => "92",
@@ -335,6 +336,9 @@ mod tests {
 
     #[test]
     fn test_bright_colors() {
+        let style = Style::new().bright().black();
+        assert_eq!(style.to_ansi_codes(), "\x1b[90m");
+
         let style = Style::new().bright().red();
         assert_eq!(style.to_ansi_codes(), "\x1b[91m");
 
