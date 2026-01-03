@@ -586,7 +586,15 @@ const CONFIG_PATHS: &[&str] = &[
 /// ```
 #[allow(dead_code)]
 pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
-    // First, try to load from embedded configuration (only when feature is enabled)
+    // Always prioritize user config first
+    let user_config_path = "~/.config/rgrc/rgrc.conf";
+    let expanded_user_config = expand_tilde(user_config_path);
+    let rules = load_config(&expanded_user_config, pseudo_command);
+    if !rules.is_empty() {
+        return rules;
+    }
+
+    // Then, if embed-configs is enabled, try embedded cache
     #[cfg(feature = "embed-configs")]
     {
         let embedded_rules = load_config_from_embedded(pseudo_command);
@@ -595,8 +603,11 @@ pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         }
     }
 
-    // Fallback to file system configuration paths - **stop at first match**
+    // Fallback to other file system configuration paths - **stop at first match**
     for config_path in CONFIG_PATHS {
+        if *config_path == "~/.config/rgrc/rgrc.conf" {
+            continue; // Already checked above
+        }
         let expanded_path = expand_tilde(config_path);
         let rules = load_config(&expanded_path, pseudo_command);
         if !rules.is_empty() {
