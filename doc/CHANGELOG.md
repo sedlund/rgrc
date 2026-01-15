@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.6.6
+- feat: add configuration for tailing modern log files (conf.rlog) with support for Rust/Go log formats and add auto-detection for tail commands on .log files
+- fix: use program name instead of absolute path for aliases to improve portability
+
 ## v0.6.5
 - feat: add support for journalctl command with special alias
 - feat: add podman as alias for docker commands

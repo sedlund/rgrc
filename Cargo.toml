@@ -1,6 +1,6 @@
 [package]
 name = "rgrc"
-version = "0.6.5"
+version = "0.6.6"
 edition = "2024"
 license = "MIT"
 description = "Rusty Generic Colouriser"
@@ -61,7 +61,7 @@ doc = true
 
 [package.metadata.deb]
 maintainer = "lazywalker <lazywalkerz@gmail.com>"
-copyright = "2025, lazywalker <lazywalkerz@gmail.com>"
+copyright = "2026, lazywalker <lazywalkerz@gmail.com>"
 license-file = ["LICENSE"]
 extended-description = """\
 A fast, Rust-based command-line tool \
