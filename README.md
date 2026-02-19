@@ -155,29 +155,9 @@ rgrc --completions zsh > ~/.zfunc/_rgrc
 rgrc --completions fish > ~/.config/fish/completions/rgrc.fish
 ```
 
-## Advanced Features
+## Development Guide
 
-### Count/Replace
-
-```
-# Match only once per line
-regexp=^\s*#
-colours=cyan
-count=once
-
-# Replace matched text (with backreferences)
-regexp=(ERROR|WARN|INFO)
-colours=red,yellow,green
-replace=[\1]
-
-# Stop processing after match
-regexp=^FATAL
-colours=red,bold
-count=stop
-```
-
-**Count options**: `once`, `more` (default), `stop`
-**Replace**: Supports `\1`, `\2`, etc.
+See [DEVELOPMENT.md](doc/DEVELOPMENT.md) for instructions on adding new commands.
 
 ## License
 

@@ -6,6 +6,7 @@
 - feat(docker): change container id, layer_id/hash and sha256 digest to dark style
 - fix(pipe): fix broken pipes by writer.flush()
 - fix(args): when using --config/-c mode, default to colorize for grcat compatibility
+- fix(kubectl): improve coloring rules with regex-lite for grcat compatibility #20
 
 ## v0.6.11
 
