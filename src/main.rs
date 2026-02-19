@@ -181,11 +181,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut reader = io::BufReader::new(stdin.lock());
             let mut writer = io::BufWriter::new(stdout.lock());
             match io::copy(&mut reader, &mut writer) {
-                Ok(_) => std::process::exit(0),
+                Ok(_) => {
+                    let _ = writer.flush();
+                    std::process::exit(0);
+                }
                 Err(e) => {
                     if e.kind() != std::io::ErrorKind::BrokenPipe {
                         eprintln!("Error copying stdin to stdout: {}", e);
                     }
+                    let _ = writer.flush();
                     std::process::exit(0);
                 }
             }
@@ -201,7 +205,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut reader = io::BufReader::new(stdin.lock());
             let mut writer = io::BufWriter::new(stdout.lock());
             match io::copy(&mut reader, &mut writer) {
-                Ok(_) => std::process::exit(0),
+                Ok(_) => {
+                    let _ = writer.flush();
+                    std::process::exit(0);
+                }
                 Err(e) => {
                     if e.kind() != std::io::ErrorKind::BrokenPipe {
                         eprintln!(
@@ -209,6 +216,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             config_name
                         );
                     }
+                    let _ = writer.flush();
                     std::process::exit(1);
                 }
             }

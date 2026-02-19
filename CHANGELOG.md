@@ -4,6 +4,7 @@
 
 - feat(rules): add new asdf, gpg, iprule, json, phpunit commands and update dig, fdisk, id, ifconfig, ip, iproute, last, ls, nmap, ps, uptime from newmaster branch of original grc
 - feat(docker): change container id, layer_id/hash and sha256 digest to dark style
+- fix(pipe): fix broken pipes by writer.flush()
 
 ## v0.6.11
 
