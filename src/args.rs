@@ -272,6 +272,13 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
         return Err("No command specified".to_string());
     }
 
+    // When using --config/-c mode, default to colorize for grcat compatibility
+    // If --color was explicitly specified, respect the user's choice
+    // If --color was not specified (defaults to Auto), enable colors in config mode
+    if config.is_some() && color == ColorMode::Auto {
+        color = ColorMode::On;
+    }
+
     Ok(Args {
         color,
         command,
