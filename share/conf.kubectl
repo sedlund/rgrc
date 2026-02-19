@@ -35,24 +35,27 @@ regexp=\s(0/[1-9]+)\b
 colour=unchanged,bold red
 -
 # Labels
-regexp=([\w\d\-_\/.]+)=([\w\d\-_./]+)(,| |$)
+regexp=([\w\d\-_\/.]+)=([\w\d\-_./\:@]+)(,| |$)
 colour=unchanged,blue,bright_yellow
+count=once
 -
 # YAML First level (PSEUDO)
 regexp=^([\w\d \-]+):
 colours=unchanged,bright_blue
+count=once
 -
 # YAML Nested
 regexp=^[ \-]+(\S+):
 colours=unchanged, blue
+count=once
 -
 # YAML number
 regexp=: (\d+)$
 colours=unchanged, yellow
 -
-# Explicit String
-regexp="(\S*)(?=")
-colours=default,cyan
+# Explicit String (quoted values)
+regexp="([^"]*)"
+colours=unchanged,cyan
 -
 # Empy
 regexp=(\<?[Nn]one\>?|null)
